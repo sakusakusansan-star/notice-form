@@ -3,10 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Sieg 業務ポータル</title>
+<title>お知らせ投稿 | Sieg 業務ポータル</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <style>
   :root {
     --bg: #0B1220;
@@ -23,7 +21,6 @@
     --red: #E86A5A;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html { font-size: 16px; }
   body {
     font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
     background:
@@ -35,23 +32,17 @@
   }
   .wrap { max-width: 520px; margin: 0 auto; }
 
-  /* ═══ ヘッダー ═══ */
-  .board-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 4px 4px 18px;
+  .head {
+    padding: 4px 4px 16px;
     border-bottom: 1px solid var(--line);
-    margin-bottom: 14px;
+    margin-bottom: 18px;
   }
   .eyebrow {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     letter-spacing: 3px;
     color: var(--amber);
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    display: flex; align-items: center; gap: 6px;
   }
   .eyebrow::before {
     content: '';
@@ -61,678 +52,249 @@
     animation: blink 1.6s infinite;
   }
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.25;} }
-  .title {
-    font-size: 26px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    margin-top: 6px;
-  }
-  .title span {
+  .title { font-size: 24px; font-weight: 800; letter-spacing: 1px; margin-top: 6px; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .back-link {
     display: inline-block;
-    animation: flap .5s ease both;
-  }
-  @keyframes flap {
-    0% { opacity: 0; transform: translateY(-6px) rotateX(60deg); }
-    100% { opacity: 1; transform: none; }
-  }
-  .greet { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .clock-box { text-align: right; }
-  .clock {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--amber2);
-    letter-spacing: 1px;
-    text-shadow: 0 0 14px rgba(244,197,107,0.35);
-  }
-  .clock .colon { animation: blink 1s infinite; }
-  .date {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    margin-top: 10px;
+    font-size: 12px;
     color: var(--muted);
-    margin-top: 2px;
+    text-decoration: underline;
   }
 
-  /* ═══ ティッカー ═══ */
-  .ticker {
-    display: flex;
-    align-items: center;
+  .card {
     background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 16px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .field { margin-bottom: 20px; }
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 10px 16px;
+    min-height: 44px;
+    background: rgba(255,255,255,0.03);
     border: 1px solid var(--line);
     border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 14px;
-    height: 34px;
-  }
-  .ticker-tag {
-    background: var(--amber);
-    color: var(--ink);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 2px;
-    padding: 0 10px;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-  }
-  .ticker-view { flex: 1; overflow: hidden; position: relative; height: 100%; }
-  .ticker-track {
-    position: absolute;
-    white-space: nowrap;
-    font-size: 12px;
     color: var(--text);
-    line-height: 34px;
-    padding-left: 100%;
-    animation: scroll-left 22s linear infinite;
-  }
-  @keyframes scroll-left {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
-  }
-
-  /* ═══ お知らせパネル ═══ */
-  .notice {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    margin-bottom: 18px;
-    overflow: hidden;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  .notice-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
-    background: rgba(232,163,61,0.07);
-    border-bottom: 1px solid var(--line);
-  }
-  .notice-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--amber2);
-  }
-  .notice-post-link {
-    font-size: 11px;
-    color: var(--muted);
-    text-decoration: none;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 5px 10px;
-    white-space: nowrap;
-  }
-  .notice-post-link:active { background: var(--amber); color: var(--ink); border-color: var(--amber); }
-  .notice-list { padding: 2px 0; }
-  .notice-item {
-    display: grid;
-    grid-template-columns: 46px 44px 1fr;
-    gap: 8px;
-    align-items: start;
-    padding: 10px 14px;
-  }
-  .notice-item + .notice-item { border-top: 1px dashed rgba(255,255,255,0.07); }
-  .notice-date {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    color: var(--amber2);
-    padding-top: 2px;
-    white-space: nowrap;
-    line-height: 1.3;
-  }
-  .notice-date small {
-    display: block;
-    font-size: 9px;
-    color: var(--muted);
-    font-weight: 400;
-  }
-  .notice-chip {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-align: center;
-    border-radius: 6px;
-    padding: 3px 2px;
-    margin-top: 2px;
-    border: 1px solid var(--line);
-    color: var(--muted);
-  }
-  .notice-chip.t-meet { background: rgba(232,163,61,0.15); border-color: rgba(232,163,61,0.5); color: var(--amber2); }
-  .notice-chip.t-imp { background: rgba(232,106,90,0.15); border-color: rgba(232,106,90,0.5); color: var(--red); }
-  .notice-text { font-size: 13px; line-height: 1.6; word-break: break-word; }
-  .notice-name { font-size: 10px; color: var(--muted2); margin-top: 2px; }
-  .notice-empty {
-    padding: 18px 14px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--muted2);
-  }
-
-  /* ═══ カラムヘッダー ═══ */
-  .col-heads {
-    display: grid;
-    grid-template-columns: 52px 1fr 70px 16px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--muted2);
-    padding: 0 14px 8px;
-  }
-
-  /* ═══ ボード（行） ═══ */
-  .board { display: flex; flex-direction: column; gap: 8px; }
-  .row {
-    display: grid;
-    grid-template-columns: 52px 1fr 70px 16px;
-    align-items: center;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px;
-    text-decoration: none;
-    color: var(--text);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    opacity: 0;
-    animation: row-in .45s ease both;
-    transition: background .12s ease, transform .08s ease;
-  }
-  .row:active { background: rgba(232,163,61,0.10); transform: scale(0.985); }
-  @keyframes row-in {
-    0% { opacity: 0; transform: translateY(8px); }
-    100% { opacity: 1; transform: none; }
-  }
-  .gate {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--amber2);
-    line-height: 1;
-  }
-  .gate small {
-    display: block;
-    font-size: 8px;
-    color: var(--muted2);
-    letter-spacing: 1px;
-    font-weight: 600;
-    margin-top: 2px;
-  }
-  .name-block .name { font-size: 16px; font-weight: 700; }
-  .name-block .desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .status {
-    font-size: 11px;
-    color: var(--green);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 5px;
-    white-space: nowrap;
-  }
-  .status .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
-  }
-  .arrow { text-align: right; color: var(--muted2); font-size: 18px; }
-
-  .foot {
-    text-align: center;
-    font-size: 11px;
-    color: var(--muted2);
-    margin-top: 26px;
-    line-height: 1.7;
-  }
-  .foot b { color: var(--muted); }
-
-  /* ═══ 搭乗券風オーバーレイ ═══ */
-  .staff-overlay {
-    position: fixed; inset: 0;
-    background: rgba(5,8,16,0.72);
-    backdrop-filter: blur(3px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    z-index: 50;
-  }
-  .staff-overlay.show { display: flex; }
-  .staff-box {
-    width: 100%;
-    max-width: 360px;
-    background: linear-gradient(180deg, #14203A, #0E1830);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    overflow: hidden;
-    animation: box-in .28s ease both;
-  }
-  @keyframes box-in {
-    0% { opacity: 0; transform: translateY(10px) scale(0.97); }
-    100% { opacity: 1; transform: none; }
-  }
-  .pass-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    background: rgba(232,163,61,0.08);
-  }
-  .ph-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: var(--amber2);
-  }
-  .ph-brand {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: var(--muted);
-  }
-  .pass-perf {
-    height: 0;
-    border-top: 1px dashed var(--line);
-    margin: 0 20px;
-  }
-  .pass-body { padding: 22px 20px 8px; }
-  .staff-title {
     font-size: 15px;
     font-weight: 700;
-    margin-bottom: 16px;
-    text-align: center;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform .08s ease;
   }
-  .staff-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+  .chip.on {
+    background: var(--amber);
+    color: var(--ink);
+    border-color: var(--amber);
   }
-  .staff-btn {
+  .chip:active { transform: scale(0.96); }
+
+  textarea, input[type="date"], input[type="text"] {
     width: 100%;
-    padding: 14px;
     background: rgba(255,255,255,0.03);
     border: 1px solid var(--line);
     border-radius: 10px;
     color: var(--text);
     font-size: 16px;
-    font-weight: 700;
-    font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif;
-    cursor: pointer;
+    font-family: inherit;
+    padding: 12px;
+  }
+  textarea { min-height: 110px; resize: vertical; }
+  textarea:focus, input:focus { outline: none; border-color: var(--amber); }
+  input[type="date"] { color-scheme: dark; }
+  .hint { font-size: 11px; color: var(--muted2); margin-top: 6px; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
     min-height: 54px;
-    letter-spacing: 1px;
-    transition: transform 0.08s ease;
-  }
-  .staff-btn:active {
     background: var(--amber);
+    border: none;
+    border-radius: 12px;
     color: var(--ink);
-    border-color: var(--amber);
-    transform: scale(0.97);
-  }
-  .staff-back {
-    margin-top: 16px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--muted);
-    text-decoration: underline;
+    font-size: 17px;
+    font-weight: 800;
+    font-family: inherit;
+    letter-spacing: 2px;
     cursor: pointer;
-    padding: 6px;
+    transition: transform .08s ease;
   }
-  .pass-foot {
+  .submit-btn:active { transform: scale(0.98); }
+  .submit-btn:disabled { opacity: .5; }
+
+  .msg {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    text-align: center;
+    display: none;
+  }
+  .msg.ok { display: block; background: rgba(76,217,123,0.10); border: 1px solid rgba(76,217,123,0.4); color: var(--green); }
+  .msg.ng { display: block; background: rgba(232,106,90,0.10); border: 1px solid rgba(232,106,90,0.4); color: var(--red); }
+
+  .foot {
     font-family: 'JetBrains Mono', monospace;
     font-size: 8px;
     letter-spacing: 2px;
     color: var(--muted2);
     text-align: center;
-    padding: 0 20px 16px;
+    margin-top: 22px;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .title span { animation: none; opacity: 1; transform: none; }
-    .row { animation: none; opacity: 1; }
-    .ticker-track { animation: none; padding-left: 12px; }
-    .dot, .eyebrow::before, .clock .colon { animation: none; }
-    .staff-box { animation: none; }
+    .eyebrow::before { animation: none; }
   }
 </style>
 </head>
 <body>
-
 <div class="wrap">
 
-  <div class="board-head">
-    <div>
-      <div class="eyebrow">SIEG OPS BOARD</div>
-      <div class="title" id="title"></div>
-      <div class="greet" id="greet"></div>
-    </div>
-    <div class="clock-box">
-      <div class="clock" id="clock">--<span class="colon">:</span>--</div>
-      <div class="date" id="date">----/--/-- ---</div>
-    </div>
+  <div class="head">
+    <div class="eyebrow">SIEG OPS BOARD</div>
+    <div class="title">お知らせ投稿</div>
+    <div class="sub">投稿するとポータルのトップに表示されます</div>
+    <a class="back-link" href="https://sakusakusansan-star.github.io/sieg-portal/">‹ ポータルに戻る</a>
   </div>
 
-  <div class="ticker">
-    <div class="ticker-tag">INFO</div>
-    <div class="ticker-view">
-      <div class="ticker-track" id="ticker-track"></div>
+  <div class="card">
+
+    <div class="field">
+      <div class="label">POSTED BY / 投稿者</div>
+      <div class="chips" id="name-chips"></div>
     </div>
-  </div>
 
-  <!-- ═══ お知らせパネル ═══ -->
-  <div class="notice" id="notice">
-    <div class="notice-head">
-      <span class="notice-label">NOTICE / 今月のお知らせ</span>
-      <a class="notice-post-link" href="https://sakusakusansan-star.github.io/notice-form/">＋ 投稿する</a>
+    <div class="field">
+      <div class="label">TYPE / 種別</div>
+      <div class="chips" id="type-chips"></div>
     </div>
-    <div class="notice-list" id="notice-list">
-      <div class="notice-empty" id="notice-empty">現在お知らせはありません</div>
+
+    <div class="field">
+      <div class="label">MESSAGE / 内容</div>
+      <textarea id="text" placeholder="例：全体会議を行います"></textarea>
     </div>
-  </div>
 
-  <div class="col-heads">
-    <div>GATE</div>
-    <div>TOOL</div>
-    <div style="text-align:right;">STATUS</div>
-    <div></div>
-  </div>
-
-  <div class="board" id="board">
-    <a href="#" class="row" data-id="keihi" data-mode="staff"
-       data-url="https://sakusakusansan-star.github.io/keihi23/"
-       data-staff='["福山","古川","清田"]'
-       onclick="return goTo(this)" style="animation-delay:.05s">
-      <div class="gate">K1<small>GATE</small></div>
-      <div class="name-block">
-        <div class="name">経費精算</div>
-        <div class="desc">領収書をAIで自動読み取り</div>
-      </div>
-      <div class="status"><span class="dot"></span>運行中</div>
-      <div class="arrow">›</div>
-    </a>
-
-    <a href="#" class="row" data-id="shift" data-mode="category"
-       data-options='[
-         {"label":"Sieg社員","type":"link","url":"https://docs.google.com/spreadsheets/d/1wRBlTC_U2Mek5xj1YDFUEuAdRRlcVGZGIy_3WmmJLsQ/edit?usp=sharing"},
-         {"label":"パートナー様","type":"link","url":"https://sakusakusansan-star.github.io/shift-form/"}
-       ]'
-       onclick="return goTo(this)" style="animation-delay:.14s">
-      <div class="gate">S2<small>GATE</small></div>
-      <div class="name-block">
-        <div class="name">シフト入力</div>
-        <div class="desc">スタッフのシフトを登録</div>
-      </div>
-      <div class="status"><span class="dot"></span>運行中</div>
-      <div class="arrow">›</div>
-    </a>
-
-    <a href="#" class="row" data-id="commute" data-mode="category"
-       data-options='[
-         {"label":"福山","type":"link","url":"https://sakusakusansan-star.github.io/commute-form/","appendStaff":true},
-         {"label":"古川","type":"link","url":"https://sakusakusansan-star.github.io/commute-form/","appendStaff":true},
-         {"label":"清田","type":"link","url":"https://sakusakusansan-star.github.io/commute-form/","appendStaff":true},
-         {"label":"山口","type":"link","url":"https://docs.google.com/spreadsheets/d/1RRLf47jjFvL1MdFvkt43GdSsw_r7NLQOqOQzRCEwmpA/edit?usp=sharing","appendStaff":false}
-       ]'
-       onclick="return goTo(this)" style="animation-delay:.23s">
-      <div class="gate">T3<small>GATE</small></div>
-      <div class="name-block">
-        <div class="name">交通費計算</div>
-        <div class="desc">通勤距離・交通費の自動計算</div>
-      </div>
-      <div class="status"><span class="dot"></span>運行中</div>
-      <div class="arrow">›</div>
-    </a>
-
-    <a href="https://sakusakusansan-star.github.io/nippou-form/" class="row" style="animation-delay:.32s">
-      <div class="gate">N4<small>GATE</small></div>
-      <div class="name-block">
-        <div class="name">日報</div>
-        <div class="desc">実績・所感をTeamsへ送信</div>
-      </div>
-      <div class="status"><span class="dot"></span>運行中</div>
-      <div class="arrow">›</div>
-    </a>
-  </div>
-
-  <div class="foot">
-    うまく開けない場合は、リンクを長押しして<br>
-    <b>「他のブラウザで開く」</b>を選んでください
-  </div>
-
-</div>
-
-<!-- 搭乗券風 選択オーバーレイ -->
-<div id="staff-overlay" class="staff-overlay" onclick="overlayBgClose(event)">
-  <div class="staff-box">
-    <div class="pass-head">
-      <span class="ph-label" id="ov-eyebrow">BOARDING PASS</span>
-      <span class="ph-brand">SIEG OPS</span>
+    <div class="field">
+      <div class="label">WHEN / いつ（日程）</div>
+      <input type="date" id="when">
+      <input type="text" id="time" placeholder="時間・場所など（例：10:00〜 本社2F）" style="margin-top:8px;">
+      <div class="hint">会議など日程がある場合に入力（任意）。入力すると表示期限も自動でその日に合わせます</div>
     </div>
-    <div class="pass-perf"></div>
-    <div class="pass-body">
-      <div class="staff-title" id="ov-title">あなたの名前を選んでください</div>
-      <div class="staff-buttons" id="staff-buttons"></div>
-      <div class="staff-back" id="ov-back" style="display:none;" onclick="backToCategory()">‹ 戻る</div>
+
+    <div class="field">
+      <div class="label">DISPLAY UNTIL / 表示期限</div>
+      <input type="date" id="expire">
+      <div class="hint">この日を過ぎると自動的に非表示になります（初期値：2週間後）</div>
     </div>
-    <div class="pass-foot">SIEG OPERATIONS PORTAL ★ KUMAMOTO</div>
+
+    <button class="submit-btn" id="submit" onclick="post()">投稿する</button>
+    <div class="msg" id="msg"></div>
+
   </div>
+
+  <div class="foot">SIEG OPERATIONS PORTAL ★ KUMAMOTO</div>
+
 </div>
 
 <script>
-  // ═══ 設定：お知らせGASのデプロイURLを貼る ═══
+  // ═══ 設定：GASデプロイURLを貼る ═══
   var NOTICE_API = 'https://script.google.com/macros/s/AKfycbxA1xDkeYuLRSo39iZju6-RUirpwAQbou_WjYe2G0t7KAQJAEADPgl8-56FW9jWzSvT/exec';
 
-  // ═══ タイトル（スプリットフラップ風） ═══
-  var titleText = "Sieg 業務ポータル";
-  var titleEl = document.getElementById('title');
-  titleText.split('').forEach(function(ch, i) {
-    var span = document.createElement('span');
-    span.textContent = ch === ' ' ? '\u00A0' : ch;
-    span.style.animationDelay = (i * 0.03) + 's';
-    titleEl.appendChild(span);
+  var NAMES = ['福山', '古川', '清田', '福岡'];
+  var TYPES = ['お知らせ', '会議', '重要'];
+
+  var selName = '';
+  var selType = 'お知らせ';
+
+  function buildChips(boxId, list, initial, onPick) {
+    var box = document.getElementById(boxId);
+    list.forEach(function(v) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (v === initial ? ' on' : '');
+      b.textContent = v;
+      b.onclick = function() {
+        box.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('on'); });
+        b.classList.add('on');
+        onPick(v);
+      };
+      box.appendChild(b);
+    });
+  }
+  buildChips('name-chips', NAMES, '', function(v) { selName = v; });
+  buildChips('type-chips', TYPES, 'お知らせ', function(v) { selType = v; });
+
+  // 表示期限の初期値：2週間後
+  (function() {
+    var d = new Date();
+    d.setDate(d.getDate() + 14);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    document.getElementById('expire').value = y + '-' + m + '-' + dd;
+  })();
+
+  // 日程を選んだら表示期限をその日に自動セット
+  document.getElementById('when').addEventListener('change', function() {
+    if (this.value) document.getElementById('expire').value = this.value;
   });
 
-  // ═══ 挨拶文（時間帯） ═══
-  (function() {
-    var h = new Date().getHours();
-    var g = h < 5 ? 'お疲れ様です（深夜）' : h < 11 ? 'おはようございます' : h < 18 ? 'お疲れ様です' : 'お疲れ様です（夜間）';
-    document.getElementById('greet').textContent = g;
-  })();
-
-  // ═══ 時計 ═══
-  function tick() {
-    var now = new Date();
-    var hh = String(now.getHours()).padStart(2, '0');
-    var mm = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('clock').innerHTML = hh + '<span class="colon">:</span>' + mm;
-    var days = ['日','月','火','水','木','金','土'];
-    var y = now.getFullYear();
-    var m = String(now.getMonth() + 1).padStart(2, '0');
-    var d = String(now.getDate()).padStart(2, '0');
-    document.getElementById('date').textContent = y + '/' + m + '/' + d + ' ' + days[now.getDay()];
+  function showMsg(ok, text) {
+    var el = document.getElementById('msg');
+    el.className = 'msg ' + (ok ? 'ok' : 'ng');
+    el.textContent = text;
   }
-  tick();
-  setInterval(tick, 1000 * 15);
 
-  // ═══ INFOティッカー ═══
-  var tickerMessages = [
-    '経費精算はレシート撮影でAIが自動入力',
-    'シフト入力は月初に早めの登録をお願いします',
-    '交通費計算は距離を自動算出（Maps連携）',
-    'うまく開けない時はリンク長押し→他のブラウザで開く'
-  ];
-  document.getElementById('ticker-track').textContent = tickerMessages.join('　★　');
+  function post() {
+    var text = document.getElementById('text').value.trim();
+    if (!selName) { showMsg(false, '投稿者を選んでください'); return; }
+    if (!text) { showMsg(false, '内容を入力してください'); return; }
 
-  // ═══ お知らせ読み込み ═══
-  (function loadNotices() {
-    if (!NOTICE_API || NOTICE_API.indexOf('http') !== 0) return; // 未設定ならプレースホルダーのまま
-    fetch(NOTICE_API + '?v=' + Date.now())
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (!data || !data.ok || !data.items || !data.items.length) return; // 0件ならプレースホルダーのまま
-        var list = document.getElementById('notice-list');
-        list.innerHTML = '';
-        data.items.forEach(function(it) {
-          var item = document.createElement('div');
-          item.className = 'notice-item';
+    var btn = document.getElementById('submit');
+    btn.disabled = true;
+    btn.textContent = '送信中…';
 
-          var date = document.createElement('div');
-          date.className = 'notice-date';
-          if (it.when) {
-            // 日程あり：日程を大きく表示、曜日を下に
-            date.textContent = it.when;
-            if (it.youbi) {
-              var yb = document.createElement('small');
-              yb.textContent = '(' + it.youbi + ')';
-              date.appendChild(yb);
-            }
-          } else {
-            // 日程なし：投稿日を表示
-            date.textContent = it.date || '';
-          }
-
-          var chip = document.createElement('div');
-          chip.className = 'notice-chip' +
-            (it.type === '会議' ? ' t-meet' : it.type === '重要' ? ' t-imp' : '');
-          chip.textContent = it.type || 'お知らせ';
-
-          var body = document.createElement('div');
-          var text = document.createElement('div');
-          text.className = 'notice-text';
-          text.textContent = (it.time ? it.time + '　' : '') + (it.text || '');
-          body.appendChild(text);
-          if (it.name) {
-            var name = document.createElement('div');
-            name.className = 'notice-name';
-            name.textContent = '投稿：' + it.name;
-            body.appendChild(name);
-          }
-
-          item.appendChild(date);
-          item.appendChild(chip);
-          item.appendChild(body);
-          list.appendChild(item);
-        });
+    fetch(NOTICE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        name: selName,
+        type: selType,
+        text: text,
+        when: document.getElementById('when').value,
+        time: document.getElementById('time').value.trim(),
+        expire: document.getElementById('expire').value
       })
-      .catch(function() { /* 読み込み失敗時はプレースホルダーのまま */ });
-  })();
-
-  // ═══ ナビゲーション ═══
-  var pendingRow = null;
-  var pendingCategoryOptions = null;
-
-  function keyFor(id) { return 'siegStaff_' + id; }
-
-  function goTo(el) {
-    var mode = el.getAttribute('data-mode');
-    pendingRow = el;
-
-    if (mode === 'staff') {
-      var id = el.getAttribute('data-id');
-      var url = el.getAttribute('data-url');
-      var name = localStorage.getItem(keyFor(id));
-      if (name) {
-        pendingRow = null;
-        navigateWithStaff(url, name, id);
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data && data.ok) {
+        showMsg(true, '投稿しました。ポータルに表示されます');
+        document.getElementById('text').value = '';
+        document.getElementById('when').value = '';
+        document.getElementById('time').value = '';
       } else {
-        openStaffOverlay(JSON.parse(el.getAttribute('data-staff') || '[]'));
+        showMsg(false, 'エラー：' + (data && data.error ? data.error : '不明なエラー'));
       }
-    } else if (mode === 'category') {
-      openCategoryOverlay(el);
-    }
-    return false;
-  }
-
-  function navigateWithStaff(url, name, idOverride) {
-    var id = idOverride || (pendingRow ? pendingRow.getAttribute('data-id') : null);
-    if (id) localStorage.setItem(keyFor(id), name);
-    var sep = url.indexOf('?') >= 0 ? '&' : '?';
-    window.location.href = url + sep + 'staff=' + encodeURIComponent(name) + '&v=' + Date.now();
-  }
-
-  function openStaffOverlay(names) {
-    document.getElementById('ov-eyebrow').textContent = 'BOARDING PASS';
-    document.getElementById('ov-title').textContent = 'あなたの名前を選んでください';
-    document.getElementById('ov-back').style.display = 'none';
-    var box = document.getElementById('staff-buttons');
-    box.innerHTML = '';
-    names.forEach(function(n) {
-      var btn = document.createElement('button');
-      btn.className = 'staff-btn';
-      btn.textContent = n;
-      btn.onclick = function() {
-        var url = pendingRow.getAttribute('data-url');
-        var id = pendingRow.getAttribute('data-id');
-        closeOverlay();
-        navigateWithStaff(url, n, id);
-      };
-      box.appendChild(btn);
+    })
+    .catch(function() {
+      // レスポンスが読めない環境でも送信自体は成功していることが多い
+      showMsg(true, '送信しました（ポータルで表示を確認してください）');
+    })
+    .finally(function() {
+      btn.disabled = false;
+      btn.textContent = '投稿する';
     });
-    document.getElementById('staff-overlay').classList.add('show');
-  }
-
-  function openCategoryOverlay(el) {
-    var options = JSON.parse(el.getAttribute('data-options') || '[]');
-    pendingCategoryOptions = options;
-    document.getElementById('ov-eyebrow').textContent = 'SELECT';
-    document.getElementById('ov-title').textContent = '進み先を選んでください';
-    document.getElementById('ov-back').style.display = 'none';
-    var box = document.getElementById('staff-buttons');
-    box.innerHTML = '';
-    options.forEach(function(opt) {
-      var btn = document.createElement('button');
-      btn.className = 'staff-btn';
-      btn.textContent = opt.label;
-      btn.onclick = function() {
-        if (opt.type === 'staff') {
-          var staffList = JSON.parse(el.getAttribute('data-staff') || '[]');
-          openStaffFromCategory(opt, staffList);
-        } else {
-          closeOverlay();
-          if (opt.appendStaff) {
-            var sep = opt.url.indexOf('?') >= 0 ? '&' : '?';
-            window.location.href = opt.url + sep + 'staff=' + encodeURIComponent(opt.label) + '&v=' + Date.now();
-          } else {
-            window.location.href = opt.url;
-          }
-        }
-      };
-      box.appendChild(btn);
-    });
-    document.getElementById('staff-overlay').classList.add('show');
-  }
-
-  function openStaffFromCategory(opt, staffList) {
-    document.getElementById('ov-eyebrow').textContent = 'BOARDING PASS';
-    document.getElementById('ov-title').textContent = 'あなたの名前を選んでください';
-    document.getElementById('ov-back').style.display = 'block';
-    var box = document.getElementById('staff-buttons');
-    box.innerHTML = '';
-    (opt.staff || staffList).forEach(function(n) {
-      var btn = document.createElement('button');
-      btn.className = 'staff-btn';
-      btn.textContent = n;
-      btn.onclick = function() {
-        closeOverlay();
-        var sep = opt.url.indexOf('?') >= 0 ? '&' : '?';
-        window.location.href = opt.url + sep + 'staff=' + encodeURIComponent(n) + '&v=' + Date.now();
-      };
-      box.appendChild(btn);
-    });
-  }
-
-  function backToCategory() {
-    if (pendingRow) openCategoryOverlay(pendingRow);
-  }
-
-  function closeOverlay() {
-    document.getElementById('staff-overlay').classList.remove('show');
-    pendingRow = null;
-    pendingCategoryOptions = null;
-  }
-
-  function overlayBgClose(e) {
-    if (e.target.id === 'staff-overlay') closeOverlay();
   }
 </script>
 </body>
