@@ -152,6 +152,116 @@
     margin-top: 22px;
   }
 
+  /* ═══ 投稿済み一覧 ═══ */
+  .list-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 18px;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .list-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .list-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--amber2);
+  }
+  .list-refresh {
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .list-empty {
+    padding: 18px 16px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted2);
+  }
+  .notice-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 16px;
+  }
+  .notice-row + .notice-row { border-top: 1px dashed rgba(255,255,255,0.07); }
+  .notice-row.expired { opacity: 0.45; }
+  .notice-row-main { min-width: 0; }
+  .notice-row-meta {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .notice-row-chip {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .notice-row-chip.t-meet { background: rgba(232,163,61,0.15); border-color: rgba(232,163,61,0.5); color: var(--amber2); }
+  .notice-row-chip.t-imp { background: rgba(232,106,90,0.15); border-color: rgba(232,106,90,0.5); color: var(--red); }
+  .notice-row-name { font-size: 11px; color: var(--muted); }
+  .notice-row-text {
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .notice-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .row-btn {
+    min-width: 44px;
+    min-height: 36px;
+    padding: 0 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .row-btn.del { color: var(--red); border-color: rgba(232,106,90,0.4); }
+  .row-btn:active { transform: scale(0.95); }
+
+  .editing-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--amber2);
+    background: rgba(232,163,61,0.10);
+    border: 1px solid rgba(232,163,61,0.4);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+  }
+  .editing-cancel {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .eyebrow::before { animation: none; }
   }
@@ -163,11 +273,27 @@
   <div class="head">
     <div class="eyebrow">SIEG OPS BOARD</div>
     <div class="title">お知らせ投稿</div>
-    <div class="sub">投稿するとポータルのトップに表示されます</div>
+    <div class="sub">投稿・編集・削除ができます。ポータルのトップに表示されます</div>
     <a class="back-link" href="https://sakusakusansan-star.github.io/sieg-portal/">‹ ポータルに戻る</a>
   </div>
 
+  <!-- ═══ 投稿済み一覧 ═══ -->
+  <div class="list-card">
+    <div class="list-head">
+      <span class="list-title">POSTED / 投稿済み一覧</span>
+      <span class="list-refresh" onclick="loadList()">↻ 更新</span>
+    </div>
+    <div id="list-body">
+      <div class="list-empty">読み込み中…</div>
+    </div>
+  </div>
+
   <div class="card">
+
+    <div class="editing-badge" id="editing-badge" style="display:none;">
+      ✎ 編集中のお知らせがあります
+      <span class="editing-cancel" onclick="cancelEdit()">キャンセル</span>
+    </div>
 
     <div class="field">
       <div class="label">POSTED BY / 投稿者</div>
@@ -215,9 +341,11 @@
 
   var selName = '';
   var selType = 'お知らせ';
+  var editingId = null; // nullなら新規投稿モード
 
   function buildChips(boxId, list, initial, onPick) {
     var box = document.getElementById(boxId);
+    box.innerHTML = '';
     list.forEach(function(v) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -229,6 +357,12 @@
         onPick(v);
       };
       box.appendChild(b);
+    });
+  }
+  function selectChip(boxId, value) {
+    var box = document.getElementById(boxId);
+    box.querySelectorAll('.chip').forEach(function(c) {
+      c.classList.toggle('on', c.textContent === value);
     });
   }
   buildChips('name-chips', NAMES, '', function(v) { selName = v; });
@@ -262,40 +396,178 @@
 
     var btn = document.getElementById('submit');
     btn.disabled = true;
-    btn.textContent = '送信中…';
+    btn.textContent = editingId ? '更新中…' : '送信中…';
+
+    var payload = {
+      action: editingId ? 'update' : 'create',
+      name: selName,
+      type: selType,
+      text: text,
+      when: document.getElementById('when').value,
+      time: document.getElementById('time').value.trim(),
+      expire: document.getElementById('expire').value
+    };
+    if (editingId) payload.id = editingId;
 
     fetch(NOTICE_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        name: selName,
-        type: selType,
-        text: text,
-        when: document.getElementById('when').value,
-        time: document.getElementById('time').value.trim(),
-        expire: document.getElementById('expire').value
-      })
+      body: JSON.stringify(payload)
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if (data && data.ok) {
-        showMsg(true, '投稿しました。ポータルに表示されます');
-        document.getElementById('text').value = '';
-        document.getElementById('when').value = '';
-        document.getElementById('time').value = '';
+        showMsg(true, editingId ? '更新しました' : '投稿しました。ポータルに表示されます');
+        resetFormFields();
+        loadList();
       } else {
         showMsg(false, 'エラー：' + (data && data.error ? data.error : '不明なエラー'));
       }
     })
     .catch(function() {
-      // レスポンスが読めない環境でも送信自体は成功していることが多い
-      showMsg(true, '送信しました（ポータルで表示を確認してください）');
+      showMsg(true, '送信しました（一覧で確認してください）');
+      resetFormFields();
+      loadList();
     })
     .finally(function() {
       btn.disabled = false;
-      btn.textContent = '投稿する';
+      btn.textContent = editingId ? '更新する' : '投稿する';
     });
   }
+
+  function resetFormFields() {
+    editingId = null;
+    document.getElementById('editing-badge').style.display = 'none';
+    document.getElementById('submit').textContent = '投稿する';
+    selName = '';
+    selType = 'お知らせ';
+    selectChip('name-chips', '');
+    selectChip('type-chips', 'お知らせ');
+    document.getElementById('text').value = '';
+    document.getElementById('when').value = '';
+    document.getElementById('time').value = '';
+    var d = new Date();
+    d.setDate(d.getDate() + 14);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    document.getElementById('expire').value = y + '-' + m + '-' + dd;
+  }
+
+  function cancelEdit() {
+    resetFormFields();
+    document.getElementById('msg').className = 'msg';
+  }
+
+  // ═══ 投稿済み一覧 ═══
+  function loadList() {
+    var box = document.getElementById('list-body');
+    box.innerHTML = '<div class="list-empty">読み込み中…</div>';
+    fetch(NOTICE_API + '?mode=edit&v=' + Date.now())
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (!data || !data.ok || !data.items || !data.items.length) {
+          box.innerHTML = '<div class="list-empty">投稿はまだありません</div>';
+          return;
+        }
+        box.innerHTML = '';
+        var today = new Date(); today.setHours(0,0,0,0);
+        data.items.forEach(function(it) {
+          var row = document.createElement('div');
+          row.className = 'notice-row';
+          if (it.expire) {
+            var exp = new Date(it.expire);
+            if (exp < today) row.classList.add('expired');
+          }
+
+          var main = document.createElement('div');
+          main.className = 'notice-row-main';
+
+          var meta = document.createElement('div');
+          meta.className = 'notice-row-meta';
+          var chip = document.createElement('span');
+          chip.className = 'notice-row-chip' +
+            (it.type === '会議' ? ' t-meet' : it.type === '重要' ? ' t-imp' : '');
+          chip.textContent = it.type || 'お知らせ';
+          var name = document.createElement('span');
+          name.className = 'notice-row-name';
+          name.textContent = it.name || '';
+          meta.appendChild(chip);
+          meta.appendChild(name);
+
+          var text = document.createElement('div');
+          text.className = 'notice-row-text';
+          text.textContent = it.text || '';
+
+          main.appendChild(meta);
+          main.appendChild(text);
+
+          var actions = document.createElement('div');
+          actions.className = 'notice-row-actions';
+
+          var editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'row-btn';
+          editBtn.textContent = '編集';
+          editBtn.onclick = function() { startEdit(it); };
+
+          var delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'row-btn del';
+          delBtn.textContent = '削除';
+          delBtn.onclick = function() { deleteNotice(it.id); };
+
+          actions.appendChild(editBtn);
+          actions.appendChild(delBtn);
+
+          row.appendChild(main);
+          row.appendChild(actions);
+          box.appendChild(row);
+        });
+      })
+      .catch(function() {
+        box.innerHTML = '<div class="list-empty">読み込みに失敗しました</div>';
+      });
+  }
+
+  function startEdit(it) {
+    editingId = it.id;
+    selName = it.name || '';
+    selType = it.type || 'お知らせ';
+    selectChip('name-chips', selName);
+    selectChip('type-chips', selType);
+    document.getElementById('text').value = it.text || '';
+    document.getElementById('when').value = it.when || '';
+    document.getElementById('time').value = it.time || '';
+    document.getElementById('expire').value = it.expire || '';
+    document.getElementById('editing-badge').style.display = 'flex';
+    document.getElementById('submit').textContent = '更新する';
+    document.getElementById('msg').className = 'msg';
+    window.scrollTo(0, document.querySelector('.card').offsetTop - 10);
+  }
+
+  function deleteNotice(id) {
+    if (!confirm('このお知らせを削除しますか？')) return;
+    fetch(NOTICE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'delete', id: id })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data && data.ok) {
+        if (editingId === id) cancelEdit();
+        loadList();
+      } else {
+        alert('削除に失敗しました：' + (data && data.error ? data.error : '不明なエラー'));
+      }
+    })
+    .catch(function() {
+      alert('通信エラーが発生しました');
+    });
+  }
+
+  loadList();
 </script>
 </body>
 </html>
