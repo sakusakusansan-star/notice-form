@@ -15,6 +15,29 @@ URL が全世界に見えてしまいます。
 
 ---
 
+## 既存コードとの共存について
+
+Apps Script は**全ファイルが同じグローバル空間を共有**します。同じ名前の変数や関数を
+別ファイルで宣言すると後勝ちで上書きされ、既存の `doGet` / `doPost` が壊れます。
+
+そのためこの2ファイルが定義する名前は、**すべて `ND_` / `nd` で始めています**。
+既存コードの名前を上書きすることはありません。
+
+シートの特定も既存の設定に乗ります。
+
+1. `ND_SHEET_ID`（このファイルの設定。既定は空）
+2. 既存コードの `SHEET_ID` を**読み取って**使う ← 通常はこれ
+3. `getActiveSpreadsheet()`
+
+3 はスタンドアロンのプロジェクトや時間主導トリガーからは `null` になるため、
+既存コードが `SHEET_ID` を持っているならそれを使います（読むだけで、書き換えません）。
+シート名も同様に `ND_SHEET_NAME` → 既存の `SHEET_NAME` → 先頭シート の順で解決します。
+
+貼り付ける前に **`ndCheckSetup`** を実行すると、どのスプレッドシートのどのシートを見に行くか、
+何件読めたかをログに出せます（Discord には何も送りません）。
+
+---
+
 ## 手順（3ステップ）
 
 既存のコードは一切書き換えません。ファイルを2つ足すだけです。
@@ -42,7 +65,7 @@ URL が全世界に見えてしまいます。
 
 ### 3. トリガーを作る
 
-1. エディタ上部の関数プルダウンで **`setupTriggers`** を選ぶ
+1. エディタ上部の関数プルダウンで **`ndSetupTriggers`** を選ぶ
 2. **実行** を押す
 3. 初回は「承認が必要です」と出るので、アカウントを選んで許可する
    （「このアプリは確認されていません」と出たら **詳細 → （安全ではないページ）に移動 → 許可**）
@@ -60,7 +83,7 @@ URL が全世界に見えてしまいます。
 
 種別が「重要」の投稿にも `@here` が付きます。
 
-`setupTriggers` を実行した時点で存在するお知らせは「既知」として記録されるので、
+`ndSetupTriggers` を実行した時点で存在するお知らせは「既知」として記録されるので、
 過去分が一斉に流れることはありません。
 
 ---
@@ -75,14 +98,14 @@ URL が全世界に見えてしまいます。
 既存の `doPost` の保存成功直後に、次の1行を足す方式です。1分待たずに即座に飛びます。
 
 ```js
-notifyDiscord('create', {
+ndNotify('create', {
   id: id, name: name, type: type, text: text,
   when: when, time: time, expire: expire
 });
 // 更新なら 'update'、削除なら 'delete'
 ```
 
-A と B を両方使っても**二重通知にはなりません**。`notifyDiscord()` は送信した内容を
+A と B を両方使っても**二重通知にはなりません**。`ndNotify()` は送信した内容を
 監視側の記録に反映するので、監視側は「もう送った分」として扱います。
 
 ### バックエンドをこれから作る場合
@@ -110,10 +133,11 @@ URL は変わらないので `index.html` の `NOTICE_API` はそのままで大
 
 | 関数 | 内容 |
 |------|------|
-| `testDiscord` | テスト投稿を1件 Discord に送る |
-| `testDailyAlert` | 明日が日程のお知らせに対して、前日アラートを今すぐ送る |
-| `watchNotices` | 監視を今すぐ1回走らせる |
-| `resetWatch` | 監視の記録をリセット（次回実行時に現状を記録し直す） |
+| `ndCheckSetup` | どのシートを見に行くかを確認（Discord には送らない） |
+| `ndTestDiscord` | テスト投稿を1件 Discord に送る |
+| `ndTestDailyAlert` | 明日が日程のお知らせに対して、前日アラートを今すぐ送る |
+| `ndWatchNotices` | 監視を今すぐ1回走らせる |
+| `ndResetWatch` | 監視の記録をリセット（次回実行時に現状を記録し直す） |
 
 届かないときは、エディタ左の **実行数** からログを確認してください。
 `スクリプトプロパティ DISCORD_WEBHOOK_URL が未設定` と出ていれば手順2をやり直しです。
@@ -122,13 +146,13 @@ URL は変わらないので `index.html` の `NOTICE_API` はそのままで大
 
 ## 設定を変えたいとき
 
-各ファイルの先頭にまとまっています。変更後は `setupTriggers` を再実行してください。
+各ファイルの先頭にまとまっています。変更後は `ndSetupTriggers` を再実行してください。
 
 | 変数 | ファイル | 既定値 | 内容 |
 |------|---------|--------|------|
-| `ALERT_HOUR` | NoticeDiscord.gs | `9` | 前日アラートを送る時刻（0〜23） |
-| `ALERT_MENTION` | NoticeDiscord.gs | `'@here'` | アラート時のメンション。鳴らしたくなければ `''` |
-| `MENTION_IMPORTANT` | NoticeDiscord.gs | `true` | 種別「重要」の投稿でもメンションするか |
-| `SHEET_NAME` | NoticeDiscord.gs | `''` | 対象シート名。空なら先頭シート |
-| `WATCH_INTERVAL_MINUTES` | NoticeWatch.gs | `1` | 監視の間隔（1/5/10/15/30 分）。実行時間の上限に当たるなら 5 に |
-| `WATCH_BURST_LIMIT` | NoticeWatch.gs | `8` | これを超える変化はまとめて1通にする |
+| `ND_ALERT_HOUR` | NoticeDiscord.gs | `9` | 前日アラートを送る時刻（0〜23） |
+| `ND_ALERT_MENTION` | NoticeDiscord.gs | `'@here'` | アラート時のメンション。鳴らしたくなければ `''` |
+| `ND_MENTION_IMPORTANT` | NoticeDiscord.gs | `true` | 種別「重要」の投稿でもメンションするか |
+| `ND_SHEET_NAME` | NoticeDiscord.gs | `''` | 対象シート名。空なら先頭シート |
+| `ND_WATCH_INTERVAL_MINUTES` | NoticeWatch.gs | `1` | 監視の間隔（1/5/10/15/30 分）。実行時間の上限に当たるなら 5 に |
+| `ND_WATCH_BURST_LIMIT` | NoticeWatch.gs | `8` | これを超える変化はまとめて1通にする |

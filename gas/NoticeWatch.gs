@@ -1,11 +1,14 @@
 /**
  * Sieg 業務ポータル ─ お知らせ監視（既存コードを触らずに Discord 通知する）
  *
- * 既存の doPost に notifyDiscord() を差し込めない／差し込みたくない場合はこちら。
+ * 既存の doPost に ndNotify() を差し込めない／差し込みたくない場合はこちら。
  * シートを定期的に見張って、増えた・変わった・消えたお知らせを Discord に流す。
  *
- * doPost 側で notifyDiscord() を呼んでいる場合でも二重通知にはならない。
- * notifyDiscord() が送信時に記録を更新するので、監視側は「既知」として扱う。
+ * doPost 側で ndNotify() を呼んでいる場合でも二重通知にはならない。
+ * ndNotify() が送信時に記録を更新するので、監視側は「既知」として扱う。
+ *
+ * このファイルが定義する名前もすべて ND_ / nd で始めており、
+ * 既存コードの名前は上書きしない。NoticeDiscord.gs と併せて導入する。
  */
 
 /* ═══════════════ 設定 ═══════════════ */
@@ -13,33 +16,33 @@
 // 監視の間隔（分）。GASが受け付けるのは 1, 5, 10, 15, 30 のいずれか。
 // 1 にすると最短1分で届く。実行回数が増えるので、無料アカウントで
 // 実行時間の上限に当たるようなら 5 に上げる。
-var WATCH_INTERVAL_MINUTES = 1;
+var ND_WATCH_INTERVAL_MINUTES = 1;
 
 // 一度にこの件数を超える変化を検知したら、個別通知ではなく件数だけ知らせる
 // （シートを一括編集したときに大量投稿するのを防ぐ）
-var WATCH_BURST_LIMIT = 8;
+var ND_WATCH_BURST_LIMIT = 8;
 
-var PROP_SNAPSHOT   = 'watch:snapshot';
-var PROP_WATCH_INIT = 'watch:initialized';
+var ND_PROP_SNAPSHOT   = 'nd:watch:snapshot';
+var ND_PROP_WATCH_INIT = 'nd:watch:initialized';
 
 
 /* ═══════════════ 監視本体 ═══════════════ */
 
 /**
  * シートを見て、前回からの差分を Discord に流す。
- * 時間主導トリガーから呼ばれる（setupTriggers で作成）。
+ * 時間主導トリガーから呼ばれる（ndSetupTriggers で作成）。
  */
-function watchNotices() {
+function ndWatchNotices() {
   var props = PropertiesService.getScriptProperties();
-  var before = snapshotLoad_();
-  var items = readItems_();
+  var before = ndSnapLoad_();
+  var items = ndReadItems_();
 
   var after = {};
   var events = [];
 
   items.forEach(function(it) {
-    var key = snapshotKey_(it);
-    var hash = itemHash_(it);
+    var key = ndSnapKey_(it);
+    var hash = ndItemHash_(it);
     after[key] = { h: hash, n: it.name, ty: it.type, t: String(it.text || '').slice(0, 60) };
 
     if (!before[key]) events.push({ kind: 'create', item: it });
@@ -54,24 +57,24 @@ function watchNotices() {
     });
   });
 
-  snapshotSave_(after);
+  ndSnapSave_(after);
 
   // 初回は「今ある分」を記録するだけ。既存のお知らせを一斉通知しないため。
-  if (!props.getProperty(PROP_WATCH_INIT)) {
-    props.setProperty(PROP_WATCH_INIT, '1');
+  if (!props.getProperty(ND_PROP_WATCH_INIT)) {
+    props.setProperty(ND_PROP_WATCH_INIT, '1');
     console.log('初回のため現状 ' + items.length + ' 件を記録しました（通知はしません）');
     return;
   }
 
   if (!events.length) return;
 
-  if (events.length > WATCH_BURST_LIMIT) {
+  if (events.length > ND_WATCH_BURST_LIMIT) {
     console.log('変化が ' + events.length + ' 件あったため、まとめて通知します');
-    postDiscord_({
+    ndPost_({
       embeds: [{
         title: '🔄 お知らせが一括で更新されました',
         description: 'まとめて ' + events.length + ' 件の変更がありました。ポータルで確認してください。',
-        color: TYPE_COLOR['お知らせ'],
+        color: ND_TYPE_COLOR['お知らせ'],
         footer: { text: 'SIEG OPS BOARD' },
         timestamp: new Date().toISOString()
       }]
@@ -79,17 +82,17 @@ function watchNotices() {
     return;
   }
 
-  events.forEach(function(ev) { sendNotice_(ev.kind, ev.item); });
+  events.forEach(function(ev) { ndSend_(ev.kind, ev.item); });
 }
 
 /**
  * 監視の記録をリセットする。
  * 次の実行で、通知せずに「今ある分」を記録し直す。
  */
-function resetWatch() {
+function ndResetWatch() {
   var props = PropertiesService.getScriptProperties();
-  props.deleteProperty(PROP_SNAPSHOT);
-  props.deleteProperty(PROP_WATCH_INIT);
+  props.deleteProperty(ND_PROP_SNAPSHOT);
+  props.deleteProperty(ND_PROP_WATCH_INIT);
   console.log('監視の記録をリセットしました。次回の実行で現状を記録し直します');
 }
 
@@ -101,12 +104,12 @@ function resetWatch() {
  * id 列があればそれを使う。無い場合は内容のハッシュを使う。
  * （行番号を使うと、1件消したときに以降の行がずれて誤検知するため）
  */
-function snapshotKey_(item) {
+function ndSnapKey_(item) {
   var id = String(item.id || '').trim();
-  return id ? 'id:' + id : 'h:' + itemHash_(item);
+  return id ? 'id:' + id : 'h:' + ndItemHash_(item);
 }
 
-function itemHash_(item) {
+function ndItemHash_(item) {
   var src = ['name', 'type', 'text', 'when', 'time', 'expire']
     .map(function(f) { return String(item[f] === undefined ? '' : item[f]); })
     .join('');
@@ -115,8 +118,8 @@ function itemHash_(item) {
     .join('');
 }
 
-function snapshotLoad_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(PROP_SNAPSHOT);
+function ndSnapLoad_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(ND_PROP_SNAPSHOT);
   if (!raw) return {};
   try {
     return JSON.parse(raw) || {};
@@ -126,7 +129,7 @@ function snapshotLoad_() {
   }
 }
 
-function snapshotSave_(snap) {
+function ndSnapSave_(snap) {
   var json = JSON.stringify(snap);
 
   // 1プロパティあたり9KBの上限があるので、溢れそうならハッシュだけに切り詰める
@@ -135,16 +138,16 @@ function snapshotSave_(snap) {
     Object.keys(snap).forEach(function(k) { slim[k] = { h: snap[k].h }; });
     json = JSON.stringify(slim);
   }
-  PropertiesService.getScriptProperties().setProperty(PROP_SNAPSHOT, json);
+  PropertiesService.getScriptProperties().setProperty(ND_PROP_SNAPSHOT, json);
 }
 
-/** notifyDiscord() から呼ばれ、送信済みの1件を記録に反映する（二重通知の防止） */
-function snapshotSync_(kind, item) {
-  var snap = snapshotLoad_();
-  var key = snapshotKey_(item);
+/** ndNotify() から呼ばれ、送信済みの1件を記録に反映する（二重通知の防止） */
+function ndSnapSync_(kind, item) {
+  var snap = ndSnapLoad_();
+  var key = ndSnapKey_(item);
 
   if (kind === 'delete') delete snap[key];
-  else snap[key] = { h: itemHash_(item), n: item.name, ty: item.type, t: String(item.text || '').slice(0, 60) };
+  else snap[key] = { h: ndItemHash_(item), n: item.name, ty: item.type, t: String(item.text || '').slice(0, 60) };
 
-  snapshotSave_(snap);
+  ndSnapSave_(snap);
 }
