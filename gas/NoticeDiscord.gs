@@ -62,6 +62,22 @@ var FIELD_ALIASES = {
  * 通信に失敗しても投稿処理は止めない（例外を投げない）。
  */
 function notifyDiscord(kind, item) {
+  sendNotice_(kind, item);
+
+  // 送信済みとして監視側の記録に反映させ、
+  // watchNotices() が同じ内容をもう一度通知しないようにする。
+  if (typeof snapshotSync_ !== 'function') return;  // NoticeWatch.gs 未導入
+  try {
+    snapshotSync_(kind, item);
+  } catch (err) {
+    console.error('snapshotSync_ failed: ' + err);
+  }
+}
+
+/**
+ * 実際に Discord へ 1 件送る。監視側からもここを呼ぶ。
+ */
+function sendNotice_(kind, item) {
   try {
     var titles = {
       create: '📢 新しいお知らせ',
@@ -114,19 +130,41 @@ function dailyAlert() {
 }
 
 /**
- * 前日アラート用の毎日トリガーを作り直す。導入時に1回だけ手動実行する。
+ * トリガーを作り直す。導入時に1回だけ手動実行する。
+ *
+ *   dailyAlert    … 毎日 ALERT_HOUR 時に前日アラート
+ *   watchNotices  … WATCH_INTERVAL_MINUTES 分ごとにシートを見張って投稿を通知
+ *
+ * 何度実行しても重複しない（同名のトリガーを消してから作り直す）。
  */
 function setupTriggers() {
+  var handlers = ['dailyAlert', 'watchNotices'];
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === 'dailyAlert') ScriptApp.deleteTrigger(t);
+    if (handlers.indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
+
   ScriptApp.newTrigger('dailyAlert')
     .timeBased()
     .atHour(ALERT_HOUR)
     .everyDays(1)
     .inTimezone(TZ)
     .create();
-  console.log('毎日 ' + ALERT_HOUR + ':00（' + TZ + '）に dailyAlert を実行するトリガーを作成しました');
+  console.log('毎日 ' + ALERT_HOUR + ':00（' + TZ + '）に dailyAlert を実行します');
+
+  // NoticeWatch.gs を入れていない場合は監視トリガーを作らない
+  if (typeof watchNotices !== 'function') {
+    console.log('NoticeWatch.gs が無いため、投稿の自動通知は doPost 側の notifyDiscord() に任せます');
+    return;
+  }
+
+  ScriptApp.newTrigger('watchNotices')
+    .timeBased()
+    .everyMinutes(WATCH_INTERVAL_MINUTES)
+    .create();
+  console.log(WATCH_INTERVAL_MINUTES + ' 分ごとに watchNotices を実行します');
+
+  // 初回の記録を今ここで作っておく（既存のお知らせが一斉通知されるのを防ぐ）
+  watchNotices();
 }
 
 /**
