@@ -34,8 +34,21 @@ var ND_TZ = 'Asia/Tokyo';
 // 前日アラートに付けるメンション（不要なら '' にする）
 var ND_ALERT_MENTION = '@here';
 
-// 種別「重要」の投稿にもメンションを付けるか
-var ND_MENTION_IMPORTANT = true;
+// 新規投稿でメンションを付ける種別。
+//   ['*']                    … 全種別で鳴らす（既定）
+//   ['重要']                 … 「重要」のときだけ鳴らす
+//   ['重要', '会議']         … 複数指定
+//   []                       … 新規投稿では鳴らさない
+var ND_MENTION_TYPES = ['*'];
+
+// 更新（編集）のときもメンションを付けるか。
+// 誤字直しのたびに鳴るのを避けたいので既定は false。
+var ND_MENTION_ON_UPDATE = false;
+
+// メンションの種類は ND_ALERT_MENTION で決まる。
+//   '@here'     … オンラインの人だけに通知（既定）
+//   '@everyone' … オフラインの人にも通知
+//   ''          … 一切メンションしない（この場合 ND_MENTION_TYPES は無視される）
 
 // 前日アラートを送る時刻（0〜23、JST）
 var ND_ALERT_HOUR = 9;
@@ -98,13 +111,29 @@ function ndSend_(kind, item) {
     };
     var payload = { embeds: [ndEmbed_(item, titles[kind] || titles.create)] };
 
-    if (ND_MENTION_IMPORTANT && kind !== 'delete' && item && item.type === '重要' && ND_ALERT_MENTION) {
-      payload.content = ND_ALERT_MENTION;
-    }
+    var mention = ndMentionFor_(kind, item);
+    if (mention) payload.content = mention;
     ndPost_(payload);
   } catch (err) {
     console.error('ndSend_ failed: ' + err);
   }
+}
+
+/**
+ * この通知でメンションを付けるか判断する。付けないなら '' を返す。
+ *
+ *   削除          … 常に付けない
+ *   更新          … ND_MENTION_ON_UPDATE が true のときだけ
+ *   新規投稿      … ND_MENTION_TYPES に該当する種別のときだけ
+ */
+function ndMentionFor_(kind, item) {
+  if (!ND_ALERT_MENTION) return '';
+  if (kind === 'delete') return '';
+  if (kind === 'update' && !ND_MENTION_ON_UPDATE) return '';
+
+  var type = (item && item.type) || 'お知らせ';
+  if (ND_MENTION_TYPES.indexOf('*') >= 0) return ND_ALERT_MENTION;
+  return ND_MENTION_TYPES.indexOf(type) >= 0 ? ND_ALERT_MENTION : '';
 }
 
 /**
@@ -240,7 +269,8 @@ function ndPost_(payload) {
     console.warn('スクリプトプロパティ ' + ND_PROP_WEBHOOK + ' が未設定のため送信をスキップしました');
     return false;
   }
-  if (ND_ALERT_MENTION) {
+  // 本文にメンションが入っているときだけ、それを有効にする
+  if (payload.content && payload.content.indexOf('@') >= 0) {
     payload.allowed_mentions = { parse: ['everyone', 'roles', 'users'] };
   }
   var res = UrlFetchApp.fetch(url, {
