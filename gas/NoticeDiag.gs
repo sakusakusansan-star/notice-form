@@ -285,3 +285,135 @@ function ndDiagnose() {
   console.log(L.join('\n'));
   return L.join('\n');
 }
+
+
+/**
+ * 「新規投稿だけ鳴らない」を切り分ける。
+ *
+ * 最新のお知らせ1件を、条件を変えて3パターン送る。
+ * どれが届いてどれが届かないかで原因が特定できる。
+ *
+ *   A: 新規（メンションなし）        … 埋め込みの中身に問題があるか
+ *   B: 新規（メンションを文付きに）  … 本文がメンション単体なのが原因か
+ *   C: 新規（現在の設定のまま）      … 今と同じ条件。届かないはず
+ *
+ * 各パターンの HTTP コードをログに出す。Discord を見て、
+ * A/B/C のどれが届いたかを確認すること。
+ */
+function ndWhyNoCreate() {
+  var items = ndReadItems_();
+  if (!items.length) { console.log('お知らせが1件もありません'); return; }
+  var it = items[items.length - 1];
+
+  var L = [];
+  L.push('新規投稿が鳴らない原因の切り分け');
+  L.push('対象: 行' + it._row + ' [' + it.type + '] ' + it.name + ' / ' + it.text);
+  L.push('現在の設定: ND_ALERT_MENTION=' + JSON.stringify(ND_ALERT_MENTION) +
+         ' / ND_MENTION_TYPES=' + JSON.stringify(ND_MENTION_TYPES));
+  L.push('');
+
+  var embed = ndEmbed_(it, '📢 新しいお知らせ');
+
+  // A: メンションなし
+  var a = ndPost_({ embeds: [embed] });
+  L.push('A) メンションなし            → ' + (a ? '送信OK' : '送信失敗'));
+
+  Utilities.sleep(1500);
+
+  // B: メンションの後ろに文を付ける（前日アラートと同じ形）
+  var b = ndPost_({
+    content: (ND_ALERT_MENTION || '@here') + ' 新しいお知らせがあります',
+    embeds: [embed],
+    allowed_mentions: { parse: ['everyone', 'roles', 'users'] }
+  });
+  L.push('B) メンション＋文（アラートと同じ形） → ' + (b ? '送信OK' : '送信失敗'));
+
+  Utilities.sleep(1500);
+
+  // C: 今と同じ条件（ndSend_ をそのまま通す）
+  var c = ndSend_('create', it);
+  L.push('C) 現在の設定のまま          → ' + (c ? '送信OK' : '送信失敗'));
+
+  L.push('');
+  L.push('■ Discord を見て、A/B/C のどれが届いたかを確認してください');
+  L.push('  A届く B届く C届かない → 本文がメンション単体なのが原因（Bの形に変えれば解決）');
+  L.push('  A届く B届かない C届かない → メンション自体が弾かれている（AutoMod か権限）');
+  L.push('  A届かない → 埋め込みの中身に問題がある');
+  L.push('  A B C 全部届く → 送信経路は正常。検知側の問題なので ndKeyReport を実行');
+
+  console.log(L.join('\n'));
+}
+
+/**
+ * 「新規投稿が検知されているか」を調べる。
+ *
+ * シートの各行がどのキーで記録と照合されるかを一覧にする。
+ * 新規投稿が検知されない原因は、そのキーが既に記録済みになっていること。
+ * Discord には何も送らない。
+ */
+function ndKeyReport() {
+  var snap = ndSnapLoad_();
+  var items = ndReadItems_();
+  var L = [];
+  var problems = [];
+
+  L.push('キーの照合レポート');
+  L.push('シートの件数: ' + items.length + ' / 記録の件数: ' + Object.keys(snap).length);
+  L.push('');
+
+  var seen = {};
+  var current = {};
+  items.forEach(function(it) {
+    var key = ndSnapKey_(it);
+    var hash = ndItemHash_(it);
+    current[key] = true;
+
+    var state;
+    if (!snap[key]) state = '★未記録（次の実行で新規として通知される）';
+    else if (snap[key].h !== hash) state = '△記録と内容が違う（更新として通知される）';
+    else state = '記録済み（通知されない）';
+
+    L.push('行' + it._row + ' id=' + (it.id || '(空)'));
+    L.push('   内容: ' + String(it.text || '').slice(0, 30));
+    L.push('   キー: ' + key);
+    L.push('   状態: ' + state);
+
+    if (seen[key]) {
+      L.push('   ✗ 行' + seen[key] + ' と同じキー');
+      problems.push('行' + it._row + ' と行' + seen[key] + ' が同じキーになっている。' +
+                    'どちらか一方しか検知されない（ID列が空で、内容が完全に同じだと起きる）');
+    }
+    seen[key] = it._row;
+
+    if (!String(it.id || '').trim()) {
+      problems.push('行' + it._row + ' の ID 列が空。内容のハッシュで照合するため、' +
+                    '同じ内容の投稿が区別できない。既存コードが ID を後から書き込む作りなら、' +
+                    'ID が入る前と後で別のお知らせとして扱われる');
+    }
+  });
+
+  L.push('');
+  var ghosts = Object.keys(snap).filter(function(k) { return !current[k]; });
+  if (ghosts.length) {
+    L.push('記録にあるが現物に無いキー（削除として通知される）: ' + ghosts.length + ' 件');
+    ghosts.forEach(function(k) { L.push('   ' + k + '  ' + (snap[k].t || '')); });
+    problems.push('記録に残っているキーが ' + ghosts.length + ' 件ある。' +
+                  'ID が書き換わっていると、同じお知らせが「削除」と「新規」の両方で通知される');
+  } else {
+    L.push('記録にあるが現物に無いキー: なし');
+  }
+
+  L.push('');
+  L.push('───── まとめ ─────');
+  if (!problems.length) {
+    L.push('✓ キーの照合に問題は見つからなかった。');
+    L.push('  → 新規投稿は正しく検知されるはず。原因は送信側なので ndWhyNoCreate を実行');
+  } else {
+    var uniq = [];
+    problems.forEach(function(p) { if (uniq.indexOf(p) < 0) uniq.push(p); });
+    L.push('見つかった問題 ' + uniq.length + ' 件:');
+    uniq.forEach(function(p, i) { L.push('  ' + (i + 1) + '. ' + p); });
+  }
+
+  console.log(L.join('\n'));
+}
