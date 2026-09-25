@@ -20,6 +20,10 @@
 // DISCORD_WEBHOOK_URL という名前で登録する。コードには書かないこと。
 var ND_PROP_WEBHOOK = 'DISCORD_WEBHOOK_URL';
 
+// 直近の送信結果を残しておくキー（診断用。手で触る必要はない）
+var ND_PROP_LAST_OK    = 'nd:lastSendOk';
+var ND_PROP_LAST_ERROR = 'nd:lastSendError';
+
 // お知らせを保存しているスプレッドシートのID。
 // 空にしておくと、既存コードの SHEET_ID を読み取って使う（推奨）。
 // 既存コードに SHEET_ID が無い場合だけ、ここに直接IDを書く。
@@ -87,7 +91,12 @@ var ND_FIELDS = {
  * 通信に失敗しても投稿処理は止めない（例外を投げない）。
  */
 function ndNotify(kind, item) {
-  ndSend_(kind, item);
+  // 送信できなかった場合は記録に反映しない。
+  // ここで記録してしまうと、監視側が「もう送った」と判断して再送しなくなる。
+  if (!ndSend_(kind, item)) {
+    console.error('通知を送信できませんでした。監視側が次の実行で再送します');
+    return;
+  }
 
   // 送信済みとして監視側の記録に反映させ、
   // ndWatchNotices() が同じ内容をもう一度通知しないようにする。
@@ -101,6 +110,8 @@ function ndNotify(kind, item) {
 
 /**
  * 実際に Discord へ1件送る。監視側からもここを呼ぶ。
+ * 送信できたら true、できなかったら false を返す。
+ * 呼び出し側は必ず戻り値を見ること（記録より先に送るため）。
  */
 function ndSend_(kind, item) {
   try {
@@ -113,9 +124,10 @@ function ndSend_(kind, item) {
 
     var mention = ndMentionFor_(kind, item);
     if (mention) payload.content = mention;
-    ndPost_(payload);
+    return ndPost_(payload);
   } catch (err) {
     console.error('ndSend_ failed: ' + err);
+    return false;
   }
 }
 
@@ -280,10 +292,18 @@ function ndPost_(payload) {
     muteHttpExceptions: true
   });
   var code = res.getResponseCode();
+  var props = PropertiesService.getScriptProperties();
+  var now = Utilities.formatDate(new Date(), ND_TZ, 'yyyy-MM-dd HH:mm:ss');
+
   if (code < 200 || code >= 300) {
-    console.error('Discord 送信失敗 (' + code + '): ' + res.getContentText());
+    var body = res.getContentText().slice(0, 300);
+    console.error('Discord 送信失敗 HTTP ' + code + ': ' + body);
+    props.setProperty(ND_PROP_LAST_ERROR, now + ' HTTP ' + code + ' ' + body);
     return false;
   }
+
+  console.log('Discord 送信成功 HTTP ' + code);
+  props.setProperty(ND_PROP_LAST_OK, now);
   return true;
 }
 

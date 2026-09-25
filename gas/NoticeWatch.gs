@@ -9,6 +9,10 @@
  *
  * このファイルが定義する名前もすべて ND_ / nd で始めており、
  * 既存コードの名前は上書きしない。NoticeDiscord.gs と併せて導入する。
+ *
+ * 【重要】記録は「送信できたものだけ」に反映する。
+ * 送る前に記録してしまうと、Discord 側が落ちていたときにその1件が
+ * 永久に失われる（記録上は送信済みになり、再送されない）。
  */
 
 /* ═══════════════ 設定 ═══════════════ */
@@ -31,6 +35,8 @@ var ND_PROP_WATCH_INIT = 'nd:watch:initialized';
 /**
  * シートを見て、前回からの差分を Discord に流す。
  * 時間主導トリガーから呼ばれる（ndSetupTriggers で作成）。
+ *
+ * 送信に失敗した分は記録に入れないので、次の実行で自動的に再送される。
  */
 function ndWatchNotices() {
   var props = PropertiesService.getScriptProperties();
@@ -42,35 +48,37 @@ function ndWatchNotices() {
 
   items.forEach(function(it) {
     var key = ndSnapKey_(it);
-    var hash = ndItemHash_(it);
-    after[key] = { h: hash, n: it.name, ty: it.type, t: String(it.text || '').slice(0, 60) };
+    var entry = { h: ndItemHash_(it), n: it.name, ty: it.type, t: String(it.text || '').slice(0, 60) };
+    after[key] = entry;
 
-    if (!before[key]) events.push({ kind: 'create', item: it });
-    else if (before[key].h !== hash) events.push({ kind: 'update', item: it });
+    if (!before[key]) events.push({ kind: 'create', key: key, item: it, entry: entry });
+    else if (before[key].h !== entry.h) events.push({ kind: 'update', key: key, item: it, entry: entry });
   });
 
   Object.keys(before).forEach(function(key) {
     if (after[key]) return;
     events.push({
       kind: 'delete',
+      key: key,
       item: { id: key, name: before[key].n, type: before[key].ty, text: before[key].t }
     });
   });
 
-  ndSnapSave_(after);
-
   // 初回は「今ある分」を記録するだけ。既存のお知らせを一斉通知しないため。
   if (!props.getProperty(ND_PROP_WATCH_INIT)) {
-    props.setProperty(ND_PROP_WATCH_INIT, '1');
+    ndSnapSave_(after);
+    props.setProperty(ND_PROP_WATCH_INIT,
+      Utilities.formatDate(new Date(), ND_TZ, 'yyyy-MM-dd HH:mm:ss'));
     console.log('初回のため現状 ' + items.length + ' 件を記録しました（通知はしません）');
     return;
   }
 
   if (!events.length) return;
 
+  // 一括編集時は個別に投げない。これも送れたときだけ記録する。
   if (events.length > ND_WATCH_BURST_LIMIT) {
     console.log('変化が ' + events.length + ' 件あったため、まとめて通知します');
-    ndPost_({
+    var ok = ndPost_({
       embeds: [{
         title: '🔄 お知らせが一括で更新されました',
         description: 'まとめて ' + events.length + ' 件の変更がありました。ポータルで確認してください。',
@@ -79,10 +87,36 @@ function ndWatchNotices() {
         timestamp: new Date().toISOString()
       }]
     });
+    if (ok) ndSnapSave_(after);
+    else console.error('一括通知の送信に失敗しました。次回の実行で再送します');
     return;
   }
 
-  events.forEach(function(ev) { ndSend_(ev.kind, ev.item); });
+  // ここが本題。
+  // 記録は before から始めて、送信に成功した分だけを反映していく。
+  // 失敗した分は before のままなので、次回の実行で再び差分として検知される。
+  var confirmed = {};
+  Object.keys(before).forEach(function(k) { confirmed[k] = before[k]; });
+
+  var sentCount = 0;
+  var failedCount = 0;
+
+  events.forEach(function(ev) {
+    if (!ndSend_(ev.kind, ev.item)) {
+      failedCount++;
+      return;                      // 記録に反映しない → 次回再送
+    }
+    sentCount++;
+    if (ev.kind === 'delete') delete confirmed[ev.key];
+    else confirmed[ev.key] = ev.entry;
+  });
+
+  ndSnapSave_(confirmed);
+
+  console.log('通知 ' + sentCount + ' 件送信' + (failedCount ? ' / ' + failedCount + ' 件失敗' : ''));
+  if (failedCount) {
+    console.error(failedCount + ' 件の送信に失敗しました。記録に入れていないので次回の実行で再送します');
+  }
 }
 
 /**
@@ -94,6 +128,24 @@ function ndResetWatch() {
   props.deleteProperty(ND_PROP_SNAPSHOT);
   props.deleteProperty(ND_PROP_WATCH_INIT);
   console.log('監視の記録をリセットしました。次回の実行で現状を記録し直します');
+}
+
+/**
+ * 最新のお知らせ1件を、記録を無視して今すぐ送り直す。
+ * 「仕組みは健全に見えるのに届かない」ときの切り分け用。
+ * 実際に POST して HTTP コードをログに出すので、送信経路の可否が分かる。
+ */
+function ndResendLatest() {
+  var items = ndReadItems_();
+  if (!items.length) {
+    console.log('お知らせが1件もありません');
+    return;
+  }
+  var it = items[items.length - 1];
+  console.log('送り直す対象: 行' + it._row + ' [' + it.type + '] ' + it.name + ' / ' + it.text);
+
+  var ok = ndSend_('create', it);
+  console.log(ok ? '✓ 送信できました。Discord を確認してください' : '✗ 送信できませんでした。上のエラー行を確認してください');
 }
 
 
@@ -112,7 +164,7 @@ function ndSnapKey_(item) {
 function ndItemHash_(item) {
   var src = ['name', 'type', 'text', 'when', 'time', 'expire']
     .map(function(f) { return String(item[f] === undefined ? '' : item[f]); })
-    .join('');
+    .join('');
   return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, src, Utilities.Charset.UTF_8)
     .map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); })
     .join('');

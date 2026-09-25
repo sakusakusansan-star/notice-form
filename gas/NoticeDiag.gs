@@ -146,7 +146,8 @@ function ndDiagnose() {
         log('  行' + it._row + ' id=' + (it.id || '(空)') +
             ' [' + (it.type || '(空)') + '] ' + (it.name || '(空)') +
             ' / ' + String(it.text || '(空)').slice(0, 30) +
-            ' / 日程=' + (it.when || '(空)'));
+            ' / 日程=' + (it.when || '(空)') +
+            ' / 投稿日時=' + (it.created || '(空)'));
       });
       if (items.length && !items[items.length - 1].text) {
         problems.push('最新行の本文が空。列の対応がずれている可能性がある');
@@ -164,7 +165,9 @@ function ndDiagnose() {
     var props = PropertiesService.getScriptProperties();
     var inited = props.getProperty(ND_PROP_WATCH_INIT);
     var raw = props.getProperty(ND_PROP_SNAPSHOT);
-    log('初期化フラグ: ' + (inited ? '済み' : '未'));
+    log('初期化フラグ: ' + (inited === '1' ? '済み（時刻の記録なし。古い版で初期化された）'
+                            : inited ? '済み  初期化時刻: ' + inited : '未'));
+    log('  → 初期化時刻より後に入った投稿が、通知されるべきもの');
     log('記録の生データ長: ' + (raw ? raw.length + ' 文字' : 'なし'));
     snap = ndSnapLoad_();
     log('記録されている件数: ' + Object.keys(snap).length);
@@ -175,6 +178,25 @@ function ndDiagnose() {
     }
     if (raw && raw.length > 7500) {
       log('△ 記録が上限（9KB）に近い');
+    }
+  } catch (err) {
+    log('✗ 失敗: ' + err);
+  }
+
+  /* ═══ 6b. 直近の送信結果 ═══ */
+  section('6b. 直近の Discord 送信結果');
+  try {
+    var pr = PropertiesService.getScriptProperties();
+    var lastOk = pr.getProperty('nd:lastSendOk');
+    var lastErr = pr.getProperty('nd:lastSendError');
+    log('最後に成功した送信: ' + (lastOk || 'なし（一度も成功していない）'));
+    log('最後に失敗した送信: ' + (lastErr || 'なし'));
+    if (!lastOk && !lastErr) {
+      log('△ どちらも記録がない。送信を試みた記録が無いか、記録機能を入れる前の状態');
+      problems.push('送信の成功も失敗も記録が無い。ndResendLatest を実行して送信経路を直接確かめる');
+    } else if (!lastOk && lastErr) {
+      log('✗ 成功が一度もなく、失敗の記録がある');
+      problems.push('Discord への送信が一度も成功していない: ' + lastErr);
     }
   } catch (err) {
     log('✗ 失敗: ' + err);
