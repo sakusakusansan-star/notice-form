@@ -16,7 +16,7 @@ var SHEET_NAME = 'お知らせ';
 var NOTICE_TOKEN = 'sieg-notice-2026';
 
 // コードの版。/exec をブラウザで開くと表示されるので、再デプロイが反映されたかの確認に使う。
-var CODE_VERSION = '2026-10-12';
+var CODE_VERSION = '2026-10-12b';
 
 // 新規投稿の送信IDを覚えておく時間（秒）。同じIDの投稿はこの間、二重に作らない。
 var DEDUPE_SEC = 21600;
@@ -63,6 +63,7 @@ function doGet(e) {
     var now = new Date();
     var items = [];
     var limit = mode === 'edit' ? 30 : 8;
+    var tz = sheet.getParent().getSpreadsheetTimeZone() || 'Asia/Tokyo';
 
     for (var i = data.length - 1; i >= 1; i--) {
       var row = data[i];
@@ -92,7 +93,7 @@ function doGet(e) {
           item.youbi = youbi;
         }
       }
-      if (row[6]) item.time = String(row[6]);
+      if (row[6]) item.time = timeText_(row[6], tz);
 
       items.push(item);
       if (items.length >= limit) break;
@@ -102,6 +103,22 @@ function doGet(e) {
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
+}
+
+// 「時間・場所」の欄を文字にする。
+// 「21:30」とだけ入れるとスプレッドシートが時刻と見なし、日付つきの値
+// （1899年12月30日 21:30）として返ってくるので、時刻の部分だけを取り出す。
+function timeText_(v, tz) {
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return isNaN(v.getTime()) ? '' : Utilities.formatDate(v, tz || 'Asia/Tokyo', 'H:mm');
+  }
+  return String(v);
+}
+
+// 書き込む行の「時間・場所」（G列）を書式なしテキストにしておく。
+// こうしないと「21:30」が時刻に変換され、Discord通知やポータルの表示が崩れる。
+function keepTimeAsText_(sheet, row) {
+  sheet.getRange(row, 7).setNumberFormat('@');
 }
 
 // 指定IDの行番号（1始まり・シート上の行）を探す。見つからなければ0
@@ -167,6 +184,7 @@ function handlePost_(p) {
     var rowToUpdate = findRowById_(sheet, p.id);
     if (!rowToUpdate) return { ok: false, error: '対象のお知らせが見つかりません' };
     // 投稿日時（1列目）は元の値を保持、2〜7列目のみ更新
+    keepTimeAsText_(sheet, rowToUpdate);
     sheet.getRange(rowToUpdate, 2, 1, 6).setValues([values.slice(1)]);
     sheet.getRange(rowToUpdate, 8).setValue(p.id); // ID保持
     return { ok: true, id: p.id };
@@ -183,7 +201,11 @@ function handlePost_(p) {
   }
   var id = newId_();
   values.push(id);
-  sheet.appendRow(values);
+  // appendRow だと書き込みと同時に時刻へ変換されるので、先にG列をテキストにしてから書く
+  // （doPost でロックを取っているので、ほかの投稿と行が重なることはない）
+  var newRow = sheet.getLastRow() + 1;
+  keepTimeAsText_(sheet, newRow);
+  sheet.getRange(newRow, 1, 1, values.length).setValues([values]);
   var res = { ok: true, id: id };
   if (requestId) {
     try { cache.put('notice:' + requestId, JSON.stringify(res), DEDUPE_SEC); } catch (ignore) {}
