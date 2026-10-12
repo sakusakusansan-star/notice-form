@@ -336,6 +336,8 @@
 <script>
   // ═══ 設定：GASデプロイURLを貼る ═══
   var NOTICE_API = 'https://script.google.com/macros/s/AKfycbxA1xDkeYuLRSo39iZju6-RUirpwAQbou_WjYe2G0t7KAQJAEADPgl8-56FW9jWzSvT/exec';
+  // 投稿・更新・削除に付ける合言葉。gas/Code.gs の NOTICE_TOKEN と同じ文字列にする。
+  var NOTICE_TOKEN = 'sieg-notice-2026';
 
   var NAMES = ['福山', '古川', '清田', '福岡'];
   var TYPES = ['お知らせ', '会議', '重要'];
@@ -400,6 +402,7 @@
     btn.textContent = editingId ? '更新中…' : '送信中…';
 
     var payload = {
+      token: NOTICE_TOKEN,
       action: editingId ? 'update' : 'create',
       name: selName,
       type: selType,
@@ -409,6 +412,7 @@
       expire: document.getElementById('expire').value
     };
     if (editingId) payload.id = editingId;
+    else payload.requestId = requestIdFor(payload);
 
     // 更新は同じ内容で上書きするだけなので、一時的な失敗は自動でやり直す。
     // 新規投稿はやり直すと二重投稿になるので、やり直さない。
@@ -436,7 +440,18 @@
     });
   }
 
+  // 新規投稿の送信ID。同じ内容を送り直すときは同じIDを使い、GAS側で二重投稿を防ぐ。
+  // 投稿に成功したら忘れるので、次の投稿には新しいIDが付く。
+  var lastRequest = null;
+  function requestIdFor(p) {
+    var key = JSON.stringify(p);
+    if (lastRequest && lastRequest.key === key) return lastRequest.id;
+    lastRequest = { key: key, id: GasClient.newId() };
+    return lastRequest.id;
+  }
+
   function resetFormFields() {
+    lastRequest = null;
     editingId = null;
     document.getElementById('editing-badge').style.display = 'none';
     document.getElementById('submit').textContent = '投稿する';
@@ -559,7 +574,7 @@
   function deleteNotice(id) {
     if (!confirm('このお知らせを削除しますか？')) return;
     // IDを指定して消すだけなので、やり直しても結果は同じ
-    GasClient.post(NOTICE_API, { action: 'delete', id: id }, { retry: true })
+    GasClient.post(NOTICE_API, { token: NOTICE_TOKEN, action: 'delete', id: id }, { retry: true })
     .then(function(data) {
       if (data && data.ok) {
         if (editingId === id) cancelEdit();

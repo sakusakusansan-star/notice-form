@@ -9,6 +9,18 @@
 var SHEET_ID = '1DSIXZlzmXgudaWpnjEKwTCgCd94ND9oyq6wcaHC-zfM';
 var SHEET_NAME = 'お知らせ';
 
+// 合言葉。notice-form の NOTICE_TOKEN と同じ文字列にする。
+// 投稿・更新・削除のときだけ確かめる（ポータルの一覧表示は合言葉なしで読める）。
+// ページのソースを見れば読めるので本格的な認証ではないが、URLだけ知った人が
+// 投稿を書き換えたり消したりするのを防ぐ。
+var NOTICE_TOKEN = 'sieg-notice-2026';
+
+// コードの版。/exec をブラウザで開くと表示されるので、再デプロイが反映されたかの確認に使う。
+var CODE_VERSION = '2026-10-12';
+
+// 新規投稿の送信IDを覚えておく時間（秒）。同じIDの投稿はこの間、二重に作らない。
+var DEDUPE_SEC = 21600;
+
 function setup() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);
@@ -86,7 +98,7 @@ function doGet(e) {
       if (items.length >= limit) break;
     }
 
-    return json_({ ok: true, items: items });
+    return json_({ ok: true, version: CODE_VERSION, items: items });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
@@ -102,51 +114,79 @@ function findRowById_(sheet, id) {
 }
 
 // ─── 投稿・更新・削除（notice-form から送信）───
+// 削除で行が詰まっている最中に別の投稿が行番号を探すと、違う行を書き換えるため、
+// 1件ずつ順番に処理する。
 function doPost(e) {
+  var lock = LockService.getScriptLock();
   try {
     var p = JSON.parse(e.postData.contents);
-    var action = p.action || 'create';
-    var sheet = getSheet_();
-
-    // ─── 削除 ───
-    if (action === 'delete') {
-      if (!p.id) return json_({ ok: false, error: 'IDがありません' });
-      var rowToDelete = findRowById_(sheet, p.id);
-      if (!rowToDelete) return json_({ ok: false, error: '対象のお知らせが見つかりません' });
-      sheet.deleteRow(rowToDelete);
-      return json_({ ok: true });
+    if (NOTICE_TOKEN && String(p.token || '') !== NOTICE_TOKEN) {
+      return json_({ ok: false, error: '合言葉が違います（ページを読み込み直してください）' });
     }
-
-    if (!p.text || !String(p.text).trim()) {
-      return json_({ ok: false, error: '内容が空です' });
+    if (!lock.tryLock(25000)) {
+      lock = null;
+      return json_({ ok: false, error: 'ほかの人の投稿を処理中です。少し待ってからもう一度お試しください' });
     }
-
-    var values = [
-      new Date(),
-      String(p.name || ''),
-      String(p.type || 'お知らせ'),
-      String(p.text).trim(),
-      p.expire ? String(p.expire) : '',
-      p.when ? String(p.when) : '',
-      p.time ? String(p.time).trim() : ''
-    ];
-
-    // ─── 更新 ───
-    if (action === 'update' && p.id) {
-      var rowToUpdate = findRowById_(sheet, p.id);
-      if (!rowToUpdate) return json_({ ok: false, error: '対象のお知らせが見つかりません' });
-      // 投稿日時（1列目）は元の値を保持、2〜7列目のみ更新
-      sheet.getRange(rowToUpdate, 2, 1, 6).setValues([values.slice(1)]);
-      sheet.getRange(rowToUpdate, 8).setValue(p.id); // ID保持
-      return json_({ ok: true, id: p.id });
-    }
-
-    // ─── 新規作成 ───
-    var id = newId_();
-    values.push(id);
-    sheet.appendRow(values);
-    return json_({ ok: true, id: id });
+    return json_(handlePost_(p));
   } catch (err) {
     return json_({ ok: false, error: String(err) });
+  } finally {
+    if (lock) { try { lock.releaseLock(); } catch (ignore) {} }
   }
+}
+
+function handlePost_(p) {
+  var action = p.action || 'create';
+  var sheet = getSheet_();
+
+  // ─── 削除 ───
+  if (action === 'delete') {
+    if (!p.id) return { ok: false, error: 'IDがありません' };
+    var rowToDelete = findRowById_(sheet, p.id);
+    if (!rowToDelete) return { ok: false, error: '対象のお知らせが見つかりません' };
+    sheet.deleteRow(rowToDelete);
+    return { ok: true };
+  }
+
+  if (!p.text || !String(p.text).trim()) {
+    return { ok: false, error: '内容が空です' };
+  }
+
+  var values = [
+    new Date(),
+    String(p.name || ''),
+    String(p.type || 'お知らせ'),
+    String(p.text).trim(),
+    p.expire ? String(p.expire) : '',
+    p.when ? String(p.when) : '',
+    p.time ? String(p.time).trim() : ''
+  ];
+
+  // ─── 更新 ───
+  if (action === 'update' && p.id) {
+    var rowToUpdate = findRowById_(sheet, p.id);
+    if (!rowToUpdate) return { ok: false, error: '対象のお知らせが見つかりません' };
+    // 投稿日時（1列目）は元の値を保持、2〜7列目のみ更新
+    sheet.getRange(rowToUpdate, 2, 1, 6).setValues([values.slice(1)]);
+    sheet.getRange(rowToUpdate, 8).setValue(p.id); // ID保持
+    return { ok: true, id: p.id };
+  }
+
+  // ─── 新規作成 ───
+  // 通信が途中で切れて送り直されたときに同じお知らせを2件作らないよう、
+  // 同じ送信IDが来たら前回の結果を返す。
+  var requestId = String(p.requestId || '').slice(0, 100);
+  var cache = CacheService.getScriptCache();
+  if (requestId) {
+    var done = cache.get('notice:' + requestId);
+    if (done) return JSON.parse(done);
+  }
+  var id = newId_();
+  values.push(id);
+  sheet.appendRow(values);
+  var res = { ok: true, id: id };
+  if (requestId) {
+    try { cache.put('notice:' + requestId, JSON.stringify(res), DEDUPE_SEC); } catch (ignore) {}
+  }
+  return res;
 }
