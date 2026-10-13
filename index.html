@@ -4,28 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>お知らせ投稿 | Sieg 業務ポータル</title>
+<meta name="theme-color" content="#EFF1F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0C1015" media="(prefers-color-scheme: dark)">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<link rel="stylesheet" href="sieg-theme.css">
 <style>
   :root {
-    --bg: #0B1220;
-    --bg2: #101B30;
-    --panel: rgba(255,255,255,0.04);
-    --line: rgba(255,255,255,0.10);
-    --amber: #E8A33D;
-    --amber2: #F4C56B;
-    --text: #EDEFF3;
-    --muted: #8A93A6;
-    --muted2: #5C6579;
-    --ink: #0B1220;
-    --green: #4CD97B;
-    --red: #E86A5A;
+    --bg: var(--sg-bg);
+    --bg2: var(--sg-bg);
+    --panel: var(--sg-surface);
+    --panel2: var(--sg-sunk);
+    --line: var(--sg-hair);
+    --amber: var(--sg-primary);
+    --amber2: var(--sg-amber);
+    --text: var(--sg-ink);
+    --muted: var(--sg-mute);
+    --muted2: var(--sg-faint);
+    --ink: var(--sg-on-primary);
+    --green: var(--sg-green);
+    --red: var(--sg-red);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
-    font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
-    background:
-      radial-gradient(1200px 600px at 100% -10%, rgba(232,163,61,0.10), transparent 60%),
-      linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+    font-family: var(--sg-font);
+    background: var(--sg-bg);
     color: var(--text);
     min-height: 100vh;
     padding: 22px 14px 40px;
@@ -38,7 +40,7 @@
     margin-bottom: 18px;
   }
   .eyebrow {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--sg-font); font-variant-numeric: tabular-nums;
     font-size: 11px;
     letter-spacing: 3px;
     color: var(--amber);
@@ -48,7 +50,6 @@
     content: '';
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--amber);
-    box-shadow: 0 0 8px var(--amber);
     animation: blink 1.6s infinite;
   }
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.25;} }
@@ -65,7 +66,7 @@
   }
   .field { margin-bottom: 20px; }
   .label {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--sg-font); font-variant-numeric: tabular-nums;
     font-size: 10px;
     letter-spacing: 2px;
     color: var(--muted);
@@ -75,7 +76,7 @@
   .chip {
     padding: 10px 16px;
     min-height: 44px;
-    background: rgba(255,255,255,0.03);
+    background: var(--sg-sunk);
     border: 1px solid var(--line);
     border-radius: 10px;
     color: var(--text);
@@ -94,7 +95,7 @@
 
   textarea, input[type="date"], input[type="text"] {
     width: 100%;
-    background: rgba(255,255,255,0.03);
+    background: var(--sg-sunk);
     border: 1px solid var(--line);
     border-radius: 10px;
     color: var(--text);
@@ -104,7 +105,7 @@
   }
   textarea { min-height: 110px; resize: vertical; }
   textarea:focus, input:focus { outline: none; border-color: var(--amber); }
-  input[type="date"] { color-scheme: dark; }
+  input[type="date"] {  }
   .hint { font-size: 11px; color: var(--muted2); margin-top: 6px; }
 
   .submit-btn {
@@ -133,11 +134,11 @@
     text-align: center;
     display: none;
   }
-  .msg.ok { display: block; background: rgba(76,217,123,0.10); border: 1px solid rgba(76,217,123,0.4); color: var(--green); }
-  .msg.ng { display: block; background: rgba(232,106,90,0.10); border: 1px solid rgba(232,106,90,0.4); color: var(--red); }
+  .msg.ok { display: block; background: var(--sg-green-tint); border: 1px solid var(--sg-green); color: var(--green); }
+  .msg.ng { display: block; background: var(--sg-red-tint); border: 1px solid var(--sg-red); color: var(--red); }
 
   .foot {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--sg-font); font-variant-numeric: tabular-nums;
     font-size: 8px;
     letter-spacing: 2px;
     color: var(--muted2);
@@ -163,7 +164,7 @@
     border-bottom: 1px solid var(--line);
   }
   .list-title {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--sg-font); font-variant-numeric: tabular-nums;
     font-size: 10px;
     letter-spacing: 2px;
     color: var(--amber2);
@@ -188,7 +189,7 @@
     align-items: center;
     padding: 12px 16px;
   }
-  .notice-row + .notice-row { border-top: 1px dashed rgba(255,255,255,0.07); }
+  .notice-row + .notice-row { border-top: 1px dashed var(--sg-sunk); }
   .notice-row.expired { opacity: 0.45; }
   .notice-row-main { min-width: 0; }
   .notice-row-meta {
@@ -207,8 +208,8 @@
     color: var(--muted);
     white-space: nowrap;
   }
-  .notice-row-chip.t-meet { background: rgba(232,163,61,0.15); border-color: rgba(232,163,61,0.5); color: var(--amber2); }
-  .notice-row-chip.t-imp { background: rgba(232,106,90,0.15); border-color: rgba(232,106,90,0.5); color: var(--red); }
+  .notice-row-chip.t-meet { background: var(--sg-amber-tint); border-color: var(--sg-amber); color: var(--amber2); }
+  .notice-row-chip.t-imp { background: var(--sg-red-tint); border-color: var(--sg-red); color: var(--red); }
   .notice-row-name { font-size: 11px; color: var(--muted); }
   .notice-row-text {
     font-size: 13px;
@@ -223,7 +224,7 @@
     min-width: 44px;
     min-height: 36px;
     padding: 0 10px;
-    background: rgba(255,255,255,0.03);
+    background: var(--sg-sunk);
     border: 1px solid var(--line);
     border-radius: 8px;
     color: var(--text);
@@ -232,7 +233,7 @@
     font-family: inherit;
     cursor: pointer;
   }
-  .row-btn.del { color: var(--red); border-color: rgba(232,106,90,0.4); }
+  .row-btn.del { color: var(--red); border-color: var(--sg-red); }
   .row-btn:active { transform: scale(0.95); }
 
   .editing-badge {
@@ -241,8 +242,8 @@
     gap: 6px;
     font-size: 12px;
     color: var(--amber2);
-    background: rgba(232,163,61,0.10);
-    border: 1px solid rgba(232,163,61,0.4);
+    background: var(--sg-amber-tint);
+    border: 1px solid var(--sg-amber);
     border-radius: 8px;
     padding: 8px 12px;
     margin-bottom: 14px;
@@ -258,6 +259,19 @@
   @media (prefers-reduced-motion: reduce) {
     .eyebrow::before { animation: none; }
   }
+
+  /* ═══ 共通の見た目（sieg-theme.css）に合わせる ═══ */
+  .eyebrow { color: var(--sg-amber); letter-spacing: .14em; }
+  .eyebrow::before { background: var(--sg-amber); }
+  .card, .list-card { border-radius: var(--sg-r); box-shadow: var(--sg-lift); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .head { border-bottom: none; }
+  .label { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--sg-ink2); }
+  .list-title { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: var(--sg-ink); }
+  .chip, textarea, input[type="date"], input[type="text"], .submit-btn { border-radius: var(--sg-r-sm); }
+  .notice-row + .notice-row { border-top: 1px solid var(--sg-hair2); }
+  .foot { font-size: 10px; letter-spacing: .1em; }
+  /* 投稿の入力欄を先に、投稿済みの一覧はその下に */
+  .list-card.list-below { margin: 18px 0 0; }
 </style>
 </head>
 <body>
@@ -267,18 +281,7 @@
     <div data-sieg-back="dark"></div>
     <div class="eyebrow">Sieg 業務ポータル</div>
     <div class="title">お知らせ投稿</div>
-    <div class="sub">投稿・編集・削除ができます。ポータルのトップに表示されます</div>
-  </div>
-
-  <!-- ═══ 投稿済み一覧 ═══ -->
-  <div class="list-card">
-    <div class="list-head">
-      <span class="list-title">投稿済み一覧</span>
-      <span class="list-refresh" onclick="loadList()">↻ 更新</span>
-    </div>
-    <div id="list-body">
-      <div class="list-empty">読み込み中…</div>
-    </div>
+    <div class="sub">ここで投稿すると、ポータルのお知らせに表示されます。過去の投稿の編集・削除は下の一覧から</div>
   </div>
 
   <div class="card">
@@ -319,6 +322,17 @@
     <button class="submit-btn" id="submit" onclick="post()">投稿する</button>
     <div class="msg" id="msg"></div>
 
+  </div>
+
+  <!-- ═══ 投稿済み一覧 ═══ -->
+  <div class="list-card list-below">
+    <div class="list-head">
+      <span class="list-title">投稿済み一覧</span>
+      <span class="list-refresh" onclick="loadList()">↻ 更新</span>
+    </div>
+    <div id="list-body">
+      <div class="list-empty">読み込み中…</div>
+    </div>
   </div>
 
   <div class="foot">Sieg 業務ポータル ・ 熊本</div>
