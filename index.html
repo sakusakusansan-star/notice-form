@@ -54,13 +54,6 @@
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.25;} }
   .title { font-size: 24px; font-weight: 800; letter-spacing: 1px; margin-top: 6px; }
   .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .back-link {
-    display: inline-block;
-    margin-top: 10px;
-    font-size: 12px;
-    color: var(--muted);
-    text-decoration: underline;
-  }
 
   .card {
     background: var(--panel);
@@ -271,16 +264,16 @@
 <div class="wrap">
 
   <div class="head">
-    <div class="eyebrow">SIEG OPS BOARD</div>
+    <div data-sieg-back="dark"></div>
+    <div class="eyebrow">Sieg 業務ポータル</div>
     <div class="title">お知らせ投稿</div>
     <div class="sub">投稿・編集・削除ができます。ポータルのトップに表示されます</div>
-    <a class="back-link" href="https://sakusakusansan-star.github.io/sieg-portal/">‹ ポータルに戻る</a>
   </div>
 
   <!-- ═══ 投稿済み一覧 ═══ -->
   <div class="list-card">
     <div class="list-head">
-      <span class="list-title">POSTED / 投稿済み一覧</span>
+      <span class="list-title">投稿済み一覧</span>
       <span class="list-refresh" onclick="loadList()">↻ 更新</span>
     </div>
     <div id="list-body">
@@ -296,29 +289,29 @@
     </div>
 
     <div class="field">
-      <div class="label">POSTED BY / 投稿者</div>
+      <div class="label">投稿者</div>
       <div class="chips" id="name-chips"></div>
     </div>
 
     <div class="field">
-      <div class="label">TYPE / 種別</div>
+      <div class="label">種別</div>
       <div class="chips" id="type-chips"></div>
     </div>
 
     <div class="field">
-      <div class="label">MESSAGE / 内容</div>
+      <div class="label">内容</div>
       <textarea id="text" placeholder="例：全体会議を行います"></textarea>
     </div>
 
     <div class="field">
-      <div class="label">WHEN / いつ（日程）</div>
+      <div class="label">いつ（日程）</div>
       <input type="date" id="when">
       <input type="text" id="time" placeholder="時間・場所など（例：10:00〜 本社2F）" style="margin-top:8px;">
       <div class="hint">会議など日程がある場合に入力（任意）。入力すると表示期限も自動でその日に合わせます</div>
     </div>
 
     <div class="field">
-      <div class="label">DISPLAY UNTIL / 表示期限</div>
+      <div class="label">表示期限</div>
       <input type="date" id="expire">
       <div class="hint">この日を過ぎると自動的に非表示になります（初期値：2週間後）</div>
     </div>
@@ -328,11 +321,12 @@
 
   </div>
 
-  <div class="foot">SIEG OPERATIONS PORTAL ★ KUMAMOTO</div>
+  <div class="foot">Sieg 業務ポータル ・ 熊本</div>
 
 </div>
 
 <script src="gas-client.js"></script>
+<script src="sieg-nav.js"></script>
 <script>
   // ═══ 設定：GASデプロイURLを貼る ═══
   var NOTICE_API = 'https://script.google.com/macros/s/AKfycbxA1xDkeYuLRSo39iZju6-RUirpwAQbou_WjYe2G0t7KAQJAEADPgl8-56FW9jWzSvT/exec';
@@ -342,7 +336,14 @@
   var NAMES = ['福山', '古川', '清田', '福岡'];
   var TYPES = ['お知らせ', '会議', '重要'];
 
-  var selName = '';
+  // 投稿者の初期値：前回この端末で投稿した名前 → ポータルで選んだ名前
+  var NAME_KEY = 'noticeName';
+  function defaultName() {
+    var last = '';
+    try { last = localStorage.getItem(NAME_KEY) || ''; } catch (e) {}
+    return NAMES.indexOf(last) >= 0 ? last : SiegNav.staff(NAMES);
+  }
+  var selName = defaultName();
   var selType = 'お知らせ';
   var editingId = null; // nullなら新規投稿モード
 
@@ -368,7 +369,7 @@
       c.classList.toggle('on', c.textContent === value);
     });
   }
-  buildChips('name-chips', NAMES, '', function(v) { selName = v; });
+  buildChips('name-chips', NAMES, selName, function(v) { selName = v; });
   buildChips('type-chips', TYPES, 'お知らせ', function(v) { selType = v; });
 
   // 表示期限の初期値：2週間後
@@ -419,6 +420,7 @@
     GasClient.post(NOTICE_API, payload, { retry: payload.action === 'update' })
     .then(function(data) {
       if (data && data.ok) {
+        try { localStorage.setItem(NAME_KEY, selName); } catch (e) {}
         showMsg(true, editingId ? '更新しました' : '投稿しました。ポータルに表示されます');
         resetFormFields();
         loadList();
@@ -455,9 +457,9 @@
     editingId = null;
     document.getElementById('editing-badge').style.display = 'none';
     document.getElementById('submit').textContent = '投稿する';
-    selName = '';
+    selName = defaultName();
     selType = 'お知らせ';
-    selectChip('name-chips', '');
+    selectChip('name-chips', selName);
     selectChip('type-chips', 'お知らせ');
     document.getElementById('text').value = '';
     document.getElementById('when').value = '';
