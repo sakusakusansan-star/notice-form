@@ -270,6 +270,8 @@
   .chip, textarea, input[type="date"], input[type="text"], .submit-btn { border-radius: var(--sg-r-sm); }
   .notice-row + .notice-row { border-top: 1px solid var(--sg-hair2); }
   .foot { font-size: 10px; letter-spacing: .1em; }
+  /* 投稿の入力欄を先に、投稿済みの一覧はその下に */
+  .list-card.list-below { margin: 18px 0 0; }
 </style>
 </head>
 <body>
@@ -279,18 +281,7 @@
     <div data-sieg-back="dark"></div>
     <div class="eyebrow">Sieg 業務ポータル</div>
     <div class="title">お知らせ投稿</div>
-    <div class="sub">投稿・編集・削除ができます。ポータルのトップに表示されます</div>
-  </div>
-
-  <!-- ═══ 投稿済み一覧 ═══ -->
-  <div class="list-card">
-    <div class="list-head">
-      <span class="list-title">投稿済み一覧</span>
-      <span class="list-refresh" onclick="loadList()">↻ 更新</span>
-    </div>
-    <div id="list-body">
-      <div class="list-empty">読み込み中…</div>
-    </div>
+    <div class="sub">ここで投稿すると、ポータルのお知らせに表示されます。過去の投稿の編集・削除は下の一覧から</div>
   </div>
 
   <div class="card">
@@ -331,6 +322,17 @@
     <button class="submit-btn" id="submit" onclick="post()">投稿する</button>
     <div class="msg" id="msg"></div>
 
+  </div>
+
+  <!-- ═══ 投稿済み一覧 ═══ -->
+  <div class="list-card list-below">
+    <div class="list-head">
+      <span class="list-title">投稿済み一覧</span>
+      <span class="list-refresh" onclick="loadList()">↻ 更新</span>
+    </div>
+    <div id="list-body">
+      <div class="list-empty">読み込み中…</div>
+    </div>
   </div>
 
   <div class="foot">Sieg 業務ポータル ・ 熊本</div>
