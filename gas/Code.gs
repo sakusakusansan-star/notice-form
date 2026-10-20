@@ -9,14 +9,12 @@
 var SHEET_ID = '1DSIXZlzmXgudaWpnjEKwTCgCd94ND9oyq6wcaHC-zfM';
 var SHEET_NAME = 'お知らせ';
 
-// 合言葉。notice-form の NOTICE_TOKEN と同じ文字列にする。
-// 投稿・更新・削除のときだけ確かめる（ポータルの一覧表示は合言葉なしで読める）。
-// ページのソースを見れば読めるので本格的な認証ではないが、URLだけ知った人が
-// 投稿を書き換えたり消したりするのを防ぐ。
-var NOTICE_TOKEN = 'sieg-notice-2026';
+// 合言葉。空なら確かめない（2026-10 から合言葉なしで運用）。
+// 使う場合は notice-form から同じ文字列を token として送ること。
+var NOTICE_TOKEN = '';
 
 // コードの版。/exec をブラウザで開くと表示されるので、再デプロイが反映されたかの確認に使う。
-var CODE_VERSION = '2026-10-12b';
+var CODE_VERSION = '2026-10-20';
 
 // 新規投稿の送信IDを覚えておく時間（秒）。同じIDの投稿はこの間、二重に作らない。
 var DEDUPE_SEC = 21600;
