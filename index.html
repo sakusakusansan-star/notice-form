@@ -341,13 +341,25 @@
 
 <script src="gas-client.js"></script>
 <script src="sieg-nav.js"></script>
+<script src="/sieg-portal/sieg-roster.js"></script>
 <script>
   // ═══ 設定：GASデプロイURLを貼る ═══
   var NOTICE_API = 'https://script.google.com/macros/s/AKfycbxA1xDkeYuLRSo39iZju6-RUirpwAQbou_WjYe2G0t7KAQJAEADPgl8-56FW9jWzSvT/exec';
   // 投稿・更新・削除に付ける合言葉。gas/Code.gs の NOTICE_TOKEN と同じ文字列にする。
   var NOTICE_TOKEN = 'sieg-notice-2026';
 
-  var NAMES = ['福山', '古川', '清田', '福岡'];
+  // 名前の一覧はポータルの名簿（sieg-roster.js）の「掲示板に投稿する人」
+  var NAMES = window.SiegRoster ? SiegRoster.forTool('notice') : [];
+  // 名簿（/sieg-portal/sieg-roster.js）が読めなかったときは、再読み込みをお願いする
+  if (!window.SiegRoster) {
+    document.addEventListener('DOMContentLoaded', function() {
+      var d = document.createElement('div');
+      d.style.cssText = 'margin:10px 16px;padding:10px 14px;border-radius:12px;background:var(--sg-red-tint,#F9EAE8);color:var(--sg-red,#AE2B24);font-weight:700;font-size:14px';
+      d.textContent = '名前の一覧を読み込めませんでした。電波のよいところで再読み込みしてください。';
+      document.body.insertBefore(d, document.body.firstChild);
+    });
+  }
+
   var TYPES = ['お知らせ', '会議', '重要'];
 
   // 投稿者の初期値：前回この端末で投稿した名前 → ポータルで選んだ名前
