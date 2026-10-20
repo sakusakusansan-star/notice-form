@@ -46,11 +46,10 @@ const post = (body) => JSON.parse(doPost({ postData: { contents: JSON.stringify(
 let passed = 0;
 function test(name, fn) { fn(); passed++; console.log('✓ ' + name); }
 
-test('合言葉が無い・違う投稿は受け付けない', () => {
+test('合言葉なしで投稿できる（合言葉は使わない）', () => {
   const g = load();
-  assert.strictEqual(post({ action: 'create', name: '古川', text: 'x' }).ok, false);
-  assert.strictEqual(post({ token: 'nope', action: 'create', name: '古川', text: 'x' }).ok, false);
-  assert.strictEqual(g.length, 1);
+  assert.strictEqual(post({ action: 'create', name: '古川', text: 'x', requestId: 'n0' }).ok, true);
+  assert.strictEqual(g.length, 2);
 });
 
 test('同じ送信IDの新規投稿は1件だけ作る', () => {
