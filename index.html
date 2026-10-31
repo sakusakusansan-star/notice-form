@@ -32,7 +32,7 @@
     min-height: 100vh;
     padding: 22px 14px 40px;
   }
-  .wrap { max-width: 520px; margin: 0 auto; }
+  .head-note { font-size: 12px; color: var(--muted); margin: -6px 2px 16px; line-height: 1.6; }
 
   .head {
     padding: 4px 4px 16px;
@@ -274,20 +274,24 @@
   .list-card.list-below { margin: 18px 0 0; }
 </style>
 </head>
-<body>
-<div class="wrap">
+<body class="has-actionbar">
+<div class="wrap sg-page">
 
-  <div class="head">
-    <div data-sieg-back="dark"></div>
-    <div class="eyebrow">Sieg 業務ポータル</div>
-    <div class="title">お知らせ投稿</div>
-    <div class="sub">ここで投稿すると、ポータルのお知らせに表示されます。過去の投稿の編集・削除は下の一覧から</div>
-  </div>
+  <div data-sieg-back="dark"></div>
+  <header class="sg-head">
+    <div>
+      <div class="sg-eyebrow">Sieg 業務ポータル</div>
+      <h1 class="sg-title">お知らせ投稿</h1>
+    </div>
+    <!-- 投稿者（下の「投稿者」で選んでいる人）。押すとその欄へ -->
+    <button type="button" class="sg-who" id="who" aria-label="投稿者を選ぶ"><i id="who-initial">?</i><span id="who-name">未選択</span></button>
+  </header>
+  <p class="head-note">ここで投稿すると、ポータルのお知らせに表示されます。過去の投稿の編集・削除は下の一覧から</p>
 
   <div class="card">
 
     <div class="editing-badge" id="editing-badge" style="display:none;">
-      ✎ 編集中のお知らせがあります
+      <svg class="sg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg> 編集中のお知らせがあります
       <span class="editing-cancel" onclick="cancelEdit()">キャンセル</span>
     </div>
 
@@ -319,10 +323,12 @@
       <div class="hint">この日を過ぎると自動的に非表示になります（初期値：2週間後）</div>
     </div>
 
-    <button class="submit-btn" id="submit" onclick="post()">投稿する</button>
     <div class="msg" id="msg"></div>
 
   </div>
+
+  <!-- 投稿ボタンは画面の下に固定 -->
+  <div class="sg-actionbar"><button class="sg-primary" id="submit" onclick="post()">投稿する</button></div>
 
   <!-- ═══ 投稿済み一覧 ═══ -->
   <div class="list-card list-below">
@@ -393,7 +399,16 @@
       c.classList.toggle('on', c.textContent === value);
     });
   }
-  buildChips('name-chips', NAMES, selName, function(v) { selName = v; });
+  // 右上の投稿者の表示
+  function paintWho() {
+    document.getElementById('who-name').textContent = selName || '未選択';
+    document.getElementById('who-initial').textContent = selName ? String(selName).charAt(0) : '?';
+  }
+  buildChips('name-chips', NAMES, selName, function(v) { selName = v; paintWho(); });
+  paintWho();
+  document.getElementById('who').addEventListener('click', function() {
+    document.getElementById('name-chips').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
   buildChips('type-chips', TYPES, 'お知らせ', function(v) { selType = v; });
 
   // 表示期限の初期値：2週間後
@@ -482,7 +497,7 @@
     document.getElementById('submit').textContent = '投稿する';
     selName = defaultName();
     selType = 'お知らせ';
-    selectChip('name-chips', selName);
+    selectChip('name-chips', selName); paintWho();
     selectChip('type-chips', 'お知らせ');
     document.getElementById('text').value = '';
     document.getElementById('when').value = '';
@@ -584,7 +599,7 @@
     editingId = it.id;
     selName = it.name || '';
     selType = it.type || 'お知らせ';
-    selectChip('name-chips', selName);
+    selectChip('name-chips', selName); paintWho();
     selectChip('type-chips', selType);
     document.getElementById('text').value = it.text || '';
     document.getElementById('when').value = it.when || '';
