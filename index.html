@@ -337,7 +337,7 @@
       <span class="list-refresh" onclick="loadList()">↻ 更新</span>
     </div>
     <div id="list-body">
-      <div class="list-empty">読み込み中…</div>
+      <div class="sg-skel-wrap" aria-busy="true" aria-label="読み込み中"><div class="sg-skel card"></div><div class="sg-skel card"></div><div class="sg-skel card"></div></div>
     </div>
   </div>
 
@@ -518,7 +518,7 @@
   // ═══ 投稿済み一覧 ═══
   function loadList() {
     var box = document.getElementById('list-body');
-    box.innerHTML = '<div class="list-empty">読み込み中…</div>';
+    box.innerHTML = '<div class="sg-skel-wrap" aria-busy="true" aria-label="読み込み中"><div class="sg-skel card"></div><div class="sg-skel card"></div><div class="sg-skel card"></div></div>';
     GasClient.get(NOTICE_API, { mode: 'edit' })
       .then(function(data) {
         if (!data || !data.ok || !data.items || !data.items.length) {
