@@ -283,7 +283,7 @@
       <div class="sg-eyebrow">Sieg 業務ポータル</div>
       <h1 class="sg-title">お知らせ投稿</h1>
     </div>
-    <!-- 投稿者（下の「投稿者」で選んでいる人）。押すとその欄へ -->
+    <!-- 投稿者。押すと名前を選ぶシートが出る（どのツールも同じ） -->
     <button type="button" class="sg-who" id="who" aria-label="投稿者を選ぶ"><i id="who-initial">?</i><span id="who-name">未選択</span></button>
   </header>
   <p class="head-note">ここで投稿すると、ポータルのお知らせに表示されます。過去の投稿の編集・削除は下の一覧から</p>
@@ -293,11 +293,6 @@
     <div class="editing-badge" id="editing-badge" style="display:none;">
       <svg class="sg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg> 編集中のお知らせがあります
       <span class="editing-cancel" onclick="cancelEdit()">キャンセル</span>
-    </div>
-
-    <div class="field">
-      <div class="label">投稿者</div>
-      <div class="chips" id="name-chips"></div>
     </div>
 
     <div class="field">
@@ -328,7 +323,7 @@
   </div>
 
   <!-- 投稿ボタンは画面の下に固定 -->
-  <div class="sg-actionbar"><button class="sg-primary" id="submit" onclick="post()">投稿する</button></div>
+  <div class="sg-actionbar"><button class="sg-primary" id="submit" onclick="post()">送信する</button></div>
 
   <!-- ═══ 投稿済み一覧 ═══ -->
   <div class="list-card list-below">
@@ -401,14 +396,15 @@
   }
   // 右上の投稿者の表示
   function paintWho() {
-    document.getElementById('who-name').textContent = selName || '未選択';
+    document.getElementById('who-name').textContent = selName || '名前を選ぶ';
+    document.getElementById('who-name').classList.toggle('unset', !selName);
     document.getElementById('who-initial').textContent = selName ? String(selName).charAt(0) : '?';
   }
-  buildChips('name-chips', NAMES, selName, function(v) { selName = v; paintWho(); });
   paintWho();
-  document.getElementById('who').addEventListener('click', function() {
-    document.getElementById('name-chips').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  function pickWho() {
+    return SiegNav.pickName(NAMES, selName, { title: '投稿者を選ぶ' }).then(function(n) { if (n) { selName = n; paintWho(); } return n; });
+  }
+  document.getElementById('who').addEventListener('click', pickWho);
   buildChips('type-chips', TYPES, 'お知らせ', function(v) { selType = v; });
 
   // 表示期限の初期値：2週間後
@@ -434,7 +430,7 @@
 
   function post() {
     var text = document.getElementById('text').value.trim();
-    if (!selName) { showMsg(false, '投稿者を選んでください'); return; }
+    if (!selName) { pickWho(); return; }
     if (!text) { showMsg(false, '内容を入力してください'); return; }
 
     var btn = document.getElementById('submit');
@@ -455,13 +451,18 @@
 
     // 更新は同じ内容で上書きするだけなので、一時的な失敗は自動でやり直す。
     // 新規投稿はやり直すと二重投稿になるので、やり直さない。
-    GasClient.post(NOTICE_API, payload, { retry: payload.action === 'update' })
+    SiegNav.flushUndo().then(function() { return GasClient.post(NOTICE_API, payload, { retry: payload.action === 'update' }); })
     .then(function(data) {
       if (data && data.ok) {
         try { localStorage.setItem(NAME_KEY, selName); } catch (e) {}
-        showMsg(true, editingId ? '更新しました' : '投稿しました。ポータルに表示されます');
+        var wasEdit = !!editingId;
+        document.getElementById('msg').className = 'msg';
         resetFormFields();
         loadList();
+        // 送ったあと：どのツールも同じ形で知らせる（次にやることを並べる）
+        SiegNav.done({ title: wasEdit ? '更新しました' : '送信しました', sub: 'ポータルのお知らせに表示されます', next: [
+          { label: '続けて投稿する' }, { label: 'ポータルで見る', href: SiegNav.portalUrl }
+        ] });
       } else {
         showMsg(false, 'エラー：' + (data && data.error ? data.error : '不明なエラー'));
       }
@@ -470,13 +471,13 @@
       // 以前はここで「送信しました」と出して入力を消していたため、
       // 電波が悪いと投稿が黙って消えていた。入力は残したまま知らせる。
       showMsg(false, err.maybeDone
-        ? '通信が途中で切れました。下の一覧に出ていれば投稿済みです。出ていなければ、このままもう一度「投稿する」を押してください。'
+        ? '通信が途中で切れました。下の一覧に出ていれば投稿済みです。出ていなければ、このままもう一度「送信する」を押してください。'
         : '送信できませんでした：' + err.message + '（入力内容は残っています）');
       loadList();
     })
     .then(function() {
       btn.disabled = false;
-      btn.textContent = editingId ? '更新する' : '投稿する';
+      btn.textContent = editingId ? '更新する' : '送信する';
     });
   }
 
@@ -494,10 +495,10 @@
     lastRequest = null;
     editingId = null;
     document.getElementById('editing-badge').style.display = 'none';
-    document.getElementById('submit').textContent = '投稿する';
+    document.getElementById('submit').textContent = '送信する';
     selName = defaultName();
     selType = 'お知らせ';
-    selectChip('name-chips', selName); paintWho();
+    paintWho();
     selectChip('type-chips', 'お知らせ');
     document.getElementById('text').value = '';
     document.getElementById('when').value = '';
@@ -522,7 +523,7 @@
     GasClient.get(NOTICE_API, { mode: 'edit' })
       .then(function(data) {
         if (!data || !data.ok || !data.items || !data.items.length) {
-          box.innerHTML = '<div class="list-empty">投稿はまだありません</div>';
+          box.innerHTML = SiegNav.empty('投稿はまだありません', '上で内容を書いて送ると、ここに並びます');
           return;
         }
         box.innerHTML = '';
@@ -570,7 +571,7 @@
           delBtn.type = 'button';
           delBtn.className = 'row-btn del';
           delBtn.textContent = '削除';
-          delBtn.onclick = function() { deleteNotice(it.id); };
+          delBtn.onclick = function() { deleteNotice(it.id, delBtn); };
 
           actions.appendChild(editBtn);
           actions.appendChild(delBtn);
@@ -599,7 +600,7 @@
     editingId = it.id;
     selName = it.name || '';
     selType = it.type || 'お知らせ';
-    selectChip('name-chips', selName); paintWho();
+    paintWho();
     selectChip('type-chips', selType);
     document.getElementById('text').value = it.text || '';
     document.getElementById('when').value = it.when || '';
@@ -611,21 +612,20 @@
     window.scrollTo(0, document.querySelector('.card').offsetTop - 10);
   }
 
-  function deleteNotice(id) {
-    if (!confirm('このお知らせを削除しますか？')) return;
-    // IDを指定して消すだけなので、やり直しても結果は同じ
-    GasClient.post(NOTICE_API, { action: 'delete', id: id }, { retry: true })
-    .then(function(data) {
-      if (data && data.ok) {
-        if (editingId === id) cancelEdit();
-        loadList();
-      } else {
-        alert('削除に失敗しました：' + (data && data.error ? data.error : '不明なエラー'));
-      }
-    })
-    .catch(function(err) {
-      alert('削除できませんでした：' + err.message);
-      loadList();
+  // 削除：行をすぐ隠して「元に戻す」を出す。押されなければ5秒後に消す（SiegNav.undoable）
+  function deleteNotice(id, btn) {
+    var row = btn;
+    while (row && row.parentNode && row.parentNode.id !== 'list-body') row = row.parentNode;
+    SiegNav.undoable({
+      text: 'お知らせを消しました', rows: row && row.parentNode ? row : null,
+      // IDを指定して消すだけなので、やり直しても結果は同じ
+      commit: function() {
+        return GasClient.post(NOTICE_API, { action: 'delete', id: id }, { retry: true }).then(function(data) {
+          if (!data || !data.ok) throw new Error(data && data.error ? data.error : '不明なエラー');
+        });
+      },
+      onDone: function() { if (editingId === id) cancelEdit(); loadList(); },
+      onFail: function() { loadList(); }
     });
   }
 
