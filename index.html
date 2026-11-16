@@ -567,13 +567,13 @@
           var editBtn = document.createElement('button');
           editBtn.type = 'button';
           editBtn.className = 'row-btn';
-          editBtn.textContent = '編集';
+          editBtn.textContent = '直す';
           editBtn.onclick = function() { startEdit(it); };
 
           var delBtn = document.createElement('button');
           delBtn.type = 'button';
           delBtn.className = 'row-btn del';
-          delBtn.textContent = '削除';
+          delBtn.textContent = '消す';
           delBtn.onclick = function() { deleteNotice(it.id, delBtn); };
 
           actions.appendChild(editBtn);
