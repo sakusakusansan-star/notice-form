@@ -95,6 +95,17 @@
     border-color: var(--amber);
   }
   .chip:active { transform: scale(0.96); }
+  .chips.small .chip { min-height: 38px; padding: 7px 12px; font-size: 13.5px; }
+  .chip:disabled { opacity: .4; cursor: default; }
+  /* 欄の並び：会議のときは日程を内容の前に */
+  .fields { display: flex; flex-direction: column; }
+  .f-type { order: 1; } .f-text { order: 3; } .f-when { order: 4; } .f-expire { order: 5; }
+  .fields.meet .f-when { order: 2; }
+  .need { display: none; margin-left: 8px; font-size: 11px; font-weight: 800; letter-spacing: 0; color: var(--sg-amber, #8A5A00); }
+  .fields.meet .need { display: inline; }
+  .fields.meet.has-when .need { display: none; }
+  .when-open { width: 100%; min-height: 44px; border: 1.5px dashed var(--line); border-radius: var(--sg-r-sm, 10px); background: none; color: var(--sg-ink2, var(--text)); font: 700 14px/1 var(--sg-font, inherit); cursor: pointer; }
+  .when-open[hidden], #when-box[hidden] { display: none; }
 
   textarea, input[type="date"], input[type="text"] {
     width: 100%;
@@ -193,7 +204,12 @@
     padding: 12px 16px;
   }
   .notice-row + .notice-row { border-top: 1px dashed var(--sg-sunk); }
-  .notice-row.expired { opacity: 0.45; }
+  .notice-row.expired { opacity: 0.55; }
+  .notice-row-sub { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .notice-row-sub b { font-weight: 800; color: var(--sg-ink2, var(--text)); }
+  .notice-row-sub .soon { color: var(--sg-amber, #8A5A00); font-weight: 800; }
+  .notice-row-chip.t-exp { background: var(--sg-sunk); color: var(--muted); }
+  .exp-toggle { display: block; width: calc(100% - 32px); margin: 8px 16px 12px; min-height: 40px; border: 1px solid var(--line); border-radius: var(--sg-r-sm, 10px); background: var(--sg-sunk); color: var(--muted); font: 700 13px/1 var(--sg-font, inherit); cursor: pointer; }
   .notice-row-main { min-width: 0; }
   .notice-row-meta {
     display: flex;
@@ -298,27 +314,34 @@
       <span class="editing-cancel" onclick="cancelEdit()">キャンセル</span>
     </div>
 
-    <div class="field">
+    <!-- 欄の並び：会議のときは日程を内容の前に出す（.meet） -->
+    <div class="fields" id="fields">
+    <div class="field f-type">
       <div class="label">種別</div>
       <div class="chips" id="type-chips"></div>
     </div>
 
-    <div class="field">
+    <div class="field f-text">
       <div class="label">内容</div>
       <textarea id="text" placeholder="例：全体会議を行います"></textarea>
     </div>
 
-    <div class="field">
-      <div class="label">いつ（日程）</div>
-      <input type="date" id="when">
-      <input type="text" id="time" placeholder="時間・場所など（例：10:00〜 本社2F）" style="margin-top:8px;">
-      <div class="hint">会議など日程がある場合に入力（任意）。入力すると表示期限も自動でその日に合わせます</div>
+    <div class="field f-when">
+      <div class="label">いつ（日程）<span class="need" id="when-need">会議は日程を入れてください</span></div>
+      <button type="button" class="when-open" id="when-open">＋ 日程を入れる（任意）</button>
+      <div id="when-box">
+        <input type="date" id="when" aria-label="日程の日付">
+        <input type="text" id="time" placeholder="時間・場所など（例：10:00〜 本社2F）" style="margin-top:8px;" aria-label="時間・場所">
+        <div class="hint">日程を入れると、表示期限もその日に合わせます</div>
+      </div>
     </div>
 
-    <div class="field">
+    <div class="field f-expire">
       <div class="label">表示期限</div>
-      <input type="date" id="expire">
-      <div class="hint">この日を過ぎると自動的に非表示になります（初期値：2週間後）</div>
+      <div class="chips small" id="expire-chips" role="group" aria-label="表示期限をえらぶ"></div>
+      <input type="date" id="expire" style="margin-top:8px;" aria-label="表示期限の日付">
+      <div class="hint">この日を過ぎると、ポータルのお知らせに出なくなります</div>
+    </div>
     </div>
 
     <div class="msg" id="msg"></div>
@@ -408,22 +431,70 @@
     return SiegNav.pickName(NAMES, selName, { title: '投稿者を選ぶ' }).then(function(n) { if (n) { selName = n; paintWho(); } return n; });
   }
   document.getElementById('who').addEventListener('click', pickWho);
-  buildChips('type-chips', TYPES, 'お知らせ', function(v) { selType = v; });
+  buildChips('type-chips', TYPES, 'お知らせ', function(v) { selType = v; applyType(); });
 
-  // 表示期限の初期値：2週間後
-  (function() {
-    var d = new Date();
-    d.setDate(d.getDate() + 14);
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, '0');
-    var dd = String(d.getDate()).padStart(2, '0');
-    document.getElementById('expire').value = y + '-' + m + '-' + dd;
-  })();
+  // ── 日付の小道具 ──
+  var DOW = ['日', '月', '火', '水', '木', '金', '土'];
+  function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function parseYmd(v) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+  function md(d) { return (d.getMonth() + 1) + '/' + d.getDate() + '(' + DOW[d.getDay()] + ')'; }
+  function today0() { var t = new Date(); t.setHours(0, 0, 0, 0); return t; }
+  function addDays(n) { var d = today0(); d.setDate(d.getDate() + n); return ymd(d); }
+  function addMonth1() { var d = today0(), day = d.getDate(); d.setMonth(d.getMonth() + 1); if (d.getDate() !== day) d.setDate(0); return ymd(d); }
+
+  // ── 種別に合わせて欄を並べ替える ──
+  // 会議：日程を内容の前に出して、いつも開いておく。お知らせ・重要：日程はたたんでおく（入っていれば開く）
+  var whenOpened = false;
+  function applyType() {
+    var meet = selType === '会議';
+    var has = !!(document.getElementById('when').value || document.getElementById('time').value.trim());
+    var open = meet || has || whenOpened;
+    document.getElementById('fields').classList.toggle('meet', meet);
+    document.getElementById('fields').classList.toggle('has-when', !!document.getElementById('when').value);
+    document.getElementById('when-open').hidden = open;
+    document.getElementById('when-box').hidden = !open;
+  }
+  document.getElementById('when-open').addEventListener('click', function() {
+    whenOpened = true; applyType();
+    try { document.getElementById('when').focus(); } catch (e) {}
+  });
+
+  // ── 表示期限：ボタンでえらぶ（日付の欄でも直せる） ──
+  var EXPIRE_CHOICES = [
+    { label: '1週間', get: function() { return addDays(7); } },
+    { label: '2週間', get: function() { return addDays(14); } },
+    { label: '1か月', get: function() { return addMonth1(); } },
+    { label: '日程の日まで', get: function() { return document.getElementById('when').value; }, needWhen: true }
+  ];
+  function paintExpire() {
+    var box = document.getElementById('expire-chips'), cur = document.getElementById('expire').value;
+    var hasWhen = !!document.getElementById('when').value;
+    box.innerHTML = '';
+    var picked = false;
+    EXPIRE_CHOICES.forEach(function(c) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = c.label;
+      if (c.needWhen && !hasWhen) { b.disabled = true; b.title = '日程を入れると選べます'; }
+      // 日程の日と同じなら「日程の日まで」を優先して光らせる
+      var v = c.get();
+      var on = !picked && v && v === cur && (c.needWhen || !(hasWhen && cur === document.getElementById('when').value));
+      if (on) { b.classList.add('on'); picked = true; }
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.onclick = function() { var nv = c.get(); if (!nv) return; document.getElementById('expire').value = nv; paintExpire(); };
+      box.appendChild(b);
+    });
+  }
+  document.getElementById('expire').value = addDays(14);   // 初めは2週間後
+  document.getElementById('expire').addEventListener('change', paintExpire);
 
   // 日程を選んだら表示期限をその日に自動セット
   document.getElementById('when').addEventListener('change', function() {
     if (this.value) document.getElementById('expire').value = this.value;
+    paintExpire(); applyType();
   });
+  applyType(); paintExpire();
 
   function showMsg(ok, text) {
     var el = document.getElementById('msg');
@@ -435,6 +506,15 @@
     var text = document.getElementById('text').value.trim();
     if (!selName) { pickWho(); return; }
     if (!text) { showMsg(false, '内容を入力してください'); return; }
+    if (selType === '会議' && !document.getElementById('when').value) {
+      SiegNav.confirm('会議の日程が入っていません。ポータルに「あと○日」が出ません。', { title: 'このまま送りますか？', ok: 'このまま送る', cancel: '日程を入れる' })
+        .then(function(yes) { if (yes) send(text); else { try { document.getElementById('when').focus(); } catch (e) {} } });
+      return;
+    }
+    send(text);
+  }
+
+  function send(text) {
 
     var btn = document.getElementById('submit');
     btn.disabled = true;
@@ -506,12 +586,9 @@
     document.getElementById('text').value = '';
     document.getElementById('when').value = '';
     document.getElementById('time').value = '';
-    var d = new Date();
-    d.setDate(d.getDate() + 14);
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, '0');
-    var dd = String(d.getDate()).padStart(2, '0');
-    document.getElementById('expire').value = y + '-' + m + '-' + dd;
+    document.getElementById('expire').value = addDays(14);
+    whenOpened = false;
+    applyType(); paintExpire();
   }
 
   function cancelEdit() {
@@ -519,26 +596,12 @@
     document.getElementById('msg').className = 'msg';
   }
 
-  // ═══ 投稿済み一覧 ═══
-  function loadList() {
-    var box = document.getElementById('list-body');
-    box.innerHTML = '<div class="sg-skel-wrap" aria-busy="true" aria-label="読み込み中"><div class="sg-skel card"></div><div class="sg-skel card"></div><div class="sg-skel card"></div></div>';
-    GasClient.get(NOTICE_API, { mode: 'edit' })
-      .then(function(data) {
-        if (!data || !data.ok || !data.items || !data.items.length) {
-          box.innerHTML = SiegNav.empty('投稿はまだありません', '上で内容を書いて送ると、ここに並びます');
-          return;
-        }
-        box.innerHTML = '';
-        var today = new Date(); today.setHours(0,0,0,0);
-        data.items.forEach(function(it) {
-          var row = document.createElement('div');
-          row.className = 'notice-row';
-          if (it.expire) {
-            var exp = new Date(it.expire);
-            if (exp < today) row.classList.add('expired');
-          }
-
+  // 一覧の1行：種別・名前（期限切れの印）、本文、日程と表示期限
+  var showExpired = false;
+  function rowFor(it, expired) {
+    var today = today0();
+    var row = document.createElement('div');
+    row.className = 'notice-row' + (expired ? ' expired' : '');
           var main = document.createElement('div');
           main.className = 'notice-row-main';
 
@@ -552,6 +615,7 @@
           name.className = 'notice-row-name';
           name.textContent = it.name || '';
           meta.appendChild(chip);
+          if (expired) { var ex = document.createElement('span'); ex.className = 'notice-row-chip t-exp'; ex.textContent = '期限切れ'; meta.appendChild(ex); }
           meta.appendChild(name);
 
           var text = document.createElement('div');
@@ -560,6 +624,26 @@
 
           main.appendChild(meta);
           main.appendChild(text);
+          // 日程・表示期限
+          var sub = document.createElement('div');
+          sub.className = 'notice-row-sub';
+          var w = parseYmd(it.when), e = parseYmd(it.expire);
+          if (w || it.time) {
+            var ws = document.createElement('span');
+            ws.innerHTML = '日程 <b></b>';
+            ws.querySelector('b').textContent = (w ? md(w) : '') + (it.time ? (w ? ' ' : '') + it.time : '');
+            sub.appendChild(ws);
+          }
+          var es = document.createElement('span');
+          if (!e) es.textContent = '期限なし';
+          else if (expired) es.textContent = md(e) + 'まで表示（終了）';
+          else {
+            var left = Math.round((e - today) / 86400000);
+            es.textContent = md(e) + 'まで表示' + (left === 0 ? '（きょうまで）' : left <= 3 ? '（あと' + left + '日）' : '');
+            if (left <= 3) es.className = 'soon';
+          }
+          sub.appendChild(es);
+          main.appendChild(sub);
 
           var actions = document.createElement('div');
           actions.className = 'notice-row-actions';
@@ -581,8 +665,41 @@
 
           row.appendChild(main);
           row.appendChild(actions);
-          box.appendChild(row);
-        });
+    return row;
+  }
+
+  // ═══ 投稿済み一覧 ═══
+  function loadList() {
+    var box = document.getElementById('list-body');
+    box.innerHTML = '<div class="sg-skel-wrap" aria-busy="true" aria-label="読み込み中"><div class="sg-skel card"></div><div class="sg-skel card"></div><div class="sg-skel card"></div></div>';
+    GasClient.get(NOTICE_API, { mode: 'edit' })
+      .then(function(data) {
+        if (!data || !data.ok || !data.items || !data.items.length) {
+          box.innerHTML = SiegNav.empty('投稿はまだありません', '上で内容を書いて送ると、ここに並びます');
+          return;
+        }
+        box.innerHTML = '';
+        var today = today0();
+        // 期限切れは下にまとめて、ふだんはたたんでおく
+        var live = [], old = [];
+        data.items.forEach(function(it) { var e = parseYmd(it.expire); (e && e < today ? old : live).push(it); });
+        live.forEach(function(it) { box.appendChild(rowFor(it, false)); });
+        if (!live.length) box.innerHTML = '<div class="list-empty">いま表示中のお知らせはありません</div>';
+        if (old.length) {
+          var tg = document.createElement('button');
+          tg.type = 'button';
+          tg.className = 'exp-toggle';
+          tg.id = 'exp-toggle';
+          var wrap = document.createElement('div');
+          wrap.id = 'exp-list';
+          wrap.hidden = !showExpired;
+          old.forEach(function(it) { wrap.appendChild(rowFor(it, true)); });
+          var paintTg = function() { tg.textContent = (showExpired ? '期限切れをたたむ' : '期限切れ ' + old.length + '件を見る'); tg.setAttribute('aria-expanded', showExpired ? 'true' : 'false'); };
+          tg.onclick = function() { showExpired = !showExpired; wrap.hidden = !showExpired; paintTg(); };
+          paintTg();
+          box.appendChild(tg);
+          box.appendChild(wrap);
+        }
       })
       .catch(function(err) {
         box.innerHTML = '';
@@ -609,6 +726,7 @@
     document.getElementById('when').value = it.when || '';
     document.getElementById('time').value = it.time || '';
     document.getElementById('expire').value = it.expire || '';
+    applyType(); paintExpire();
     document.getElementById('editing-badge').style.display = 'flex';
     document.getElementById('submit').textContent = '更新する';
     document.getElementById('msg').className = 'msg';
